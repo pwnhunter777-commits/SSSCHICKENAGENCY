@@ -1,0 +1,54 @@
+@import "tailwindcss";
+
+@layer utilities {
+  .safe-area-pb {
+    padding-bottom: env(safe-area-inset-bottom, 0.5rem);
+  }
+}
+
+@page {
+  size: A5 portrait;
+  margin: 6mm 8mm;
+}
+
+@media print {
+  html, body {
+    width: 148mm !important;
+    max-width: 148mm !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  #printable-thermal-receipt,
+  #printable-thermal-receipt * {
+    visibility: visible;
+  }
+
+  #printable-thermal-receipt {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    padding: 4mm 6mm !important;
+    border: 2px solid #000000 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    font-size: 11pt !important;
+    line-height: 1.3 !important;
+  }
+
+  #printable-thermal-receipt .no-print {
+    display: none !important;
+  }
+}

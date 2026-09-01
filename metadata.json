@@ -1,0 +1,6 @@
+{
+  "name": "SSS CHICKEN AGENCY",
+  "description": "Mobile Chicken Wholesale Billing application for SSS CHICKEN AGENCY with Daily Price sync, Hotel ledger balances, Bluetooth thermal printer support, and UPI QR Code payments.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,30 @@
+{
+  "short_name": "SSS Chicken",
+  "name": "SSS CHICKEN AGENCY",
+  "description": "Wholesale Chicken Billing and Ledger System",
+  "icons": [
+    {
+      "src": "/pwa-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/pwa-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#064e3b",
+  "theme_color": "#065f46",
+  "display": "standalone",
+  "orientation": "portrait",
+  "scope": "/"
+}
