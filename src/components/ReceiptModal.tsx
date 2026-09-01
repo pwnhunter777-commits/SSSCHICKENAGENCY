@@ -16,7 +16,7 @@ import {
   CreditCard,
   FileSpreadsheet,
 } from 'lucide-react';
-import { QRCodeSVG } from 'qrcode.react';
+import { QRCodeCanvas } from 'qrcode.react';
 import { appLogo } from '../assets/logo';
 import { Bill, HotelItem, LanguageCode, ShopSettings } from '../types';
 import { formatDisplayDate, getHotelPhone, saveOrUpdateHotelPhone } from '../utils/storage';
@@ -84,7 +84,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
     });
 
     try {
-      const success = await downloadBillPdf(bill, settings, 'printable-thermal-receipt');
+      const success = await downloadBillPdf(bill, settings, recipientPhone);
       if (success) {
         setStatusMessage({
           type: 'success',
@@ -108,7 +108,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
     setIsSharingWhatsApp(true);
     setStatusMessage({
       type: 'info',
-      text: language === 'ta' ? 'Small A4 பில் PDF அனுப்பப்படுகிறது...' : 'Generating Small A4 PDF & opening WhatsApp...',
+      text: language === 'ta' ? 'Small A4 பில் PDF உருவாக்கப்படுகிறது...' : 'Generating Small A4 PDF & opening WhatsApp...',
     });
 
     try {
@@ -123,8 +123,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
       const res = await shareBillAsPdfToWhatsApp(
         bill,
         settings,
-        recipientPhone,
-        'printable-thermal-receipt'
+        recipientPhone
       );
 
       setStatusMessage({
@@ -397,9 +396,10 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               </div>
 
               <div className="inline-block p-2.5 bg-white rounded-2xl border-2 border-gray-900 shadow-sm">
-                <QRCodeSVG
+                <QRCodeCanvas
+                  id="bill-upi-qr-canvas"
                   value={upiPayUrl}
-                  size={135}
+                  size={140}
                   level="M"
                   includeMargin={false}
                 />
