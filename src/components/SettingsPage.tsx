@@ -51,9 +51,11 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
 
   const [formData, setFormData] = useState<ShopSettings>({
     shopName: settings.shopName || '',
+    shopNameTa: settings.shopNameTa || 'எஸ்.எஸ்.எஸ் சிக்கன் ஏஜென்சி',
     phoneNumber: settings.phoneNumber || '',
     gstNumber: settings.gstNumber || '',
     address: settings.address || '',
+    addressTa: settings.addressTa || 'எண் 6, பாண்டி மெயின் ரோடு, சுல்தான்பேட்டை, வில்லியனூர், புதுச்சேரி - 605 110',
     upiId: settings.upiId || '',
     billWidthCm: settings.billWidthCm || 17,
   });

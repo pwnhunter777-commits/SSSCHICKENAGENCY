@@ -31,16 +31,50 @@ export function getTodayDateString(): string {
   return `${year}-${month}-${day}`;
 }
 
-export function formatDisplayDate(dateStr: string): string {
+export function formatDisplayDate(dateStr: string, lang: LanguageCode = 'en'): string {
   if (!dateStr) return '';
   const [year, month, day] = dateStr.split('-');
   if (!year || !month || !day) return dateStr;
   const d = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-  return d.toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
+
+  if (lang === 'ta') {
+    const tamilMonths = ['ஜன', 'பிப்', 'மார்ச்', 'ஏப்', 'மே', 'ஜூன்', 'ஜூலை', 'ஆக', 'செப்', 'அக்', 'நவ', 'டிச'];
+    const monthIndex = parseInt(month, 10) - 1;
+    const tMonth = tamilMonths[monthIndex] || 'செப்';
+    return `${day.padStart(2, '0')} ${tMonth} ${year}`;
+  }
+
+  const enMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
+  const monthIndex = parseInt(month, 10) - 1;
+  const eMonth = enMonths[monthIndex] || 'Sept';
+  return `${day.padStart(2, '0')} ${eMonth} ${year}`;
+}
+
+export function formatDisplayTime(isoOrDateStr?: string, lang: LanguageCode = 'en'): string {
+  const dateObj = isoOrDateStr ? new Date(isoOrDateStr) : new Date();
+  if (isNaN(dateObj.getTime())) return '';
+
+  let hours = dateObj.getHours();
+  const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+  const isPM = hours >= 12;
+  const periodEn = isPM ? 'pm' : 'am';
+
+  const hour12 = hours % 12 === 0 ? 12 : hours % 12;
+  const hour12Str = String(hour12).padStart(2, '0');
+
+  if (lang === 'ta') {
+    let periodTa = 'காலை';
+    if (hours >= 12 && hours < 16) {
+      periodTa = 'பிற்பகல்';
+    } else if (hours >= 16 && hours < 20) {
+      periodTa = 'மாலை';
+    } else if (hours >= 20 || hours < 5) {
+      periodTa = 'இரவு';
+    }
+    return `${periodTa} ${hour12Str}:${minutes}`;
+  }
+
+  return `${hour12Str}:${minutes} ${periodEn}`;
 }
 
 // 1. Settings

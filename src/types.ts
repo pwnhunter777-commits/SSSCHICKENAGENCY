@@ -1,8 +1,10 @@
 export interface ShopSettings {
   shopName: string;
+  shopNameTa?: string;
   phoneNumber: string;
   gstNumber: string;
   address: string;
+  addressTa?: string;
   upiId: string;
   billWidthCm?: number;
 }
@@ -99,9 +101,11 @@ export const DEFAULT_HOTELS: HotelItem[] = [
 
 export const DEFAULT_SETTINGS: ShopSettings = {
   shopName: 'SSS CHICKEN AGENCY',
+  shopNameTa: 'எஸ்.எஸ்.எஸ். சிக்கன் ஏஜென்சி',
   phoneNumber: '8680000003',
   gstNumber: '34AQPN8846J2ZF',
   address: 'NO 6, PONDY MAIN ROAD, SULTHANPET, VILLIANUR, PUDUCHERRY - 605 110',
+  addressTa: 'எண் 6, பாண்டி மெயின் ரோடு, சுல்தான்பேட்டை, வில்லியனூர், புதுச்சேரி – 605 110',
   upiId: 'NAZIRAHAMED0003@okhdfcbank',
   billWidthCm: 17,
 };
@@ -120,5 +124,89 @@ export function getHotelName(hotel: HotelItem, lang: LanguageCode): string {
     return hotel.nameTa || hotel.nameEn || '';
   }
   return hotel.nameEn || hotel.nameTa || '';
+}
+
+// Helper function to get shop name based on active language
+export function getShopDisplayName(settings: ShopSettings, lang: LanguageCode): string {
+  if (lang === 'ta') {
+    if (settings.shopNameTa && settings.shopNameTa.trim()) return settings.shopNameTa;
+    if (settings.shopName === 'SSS CHICKEN AGENCY' || !settings.shopName) return 'எஸ்.எஸ்.எஸ். சிக்கன் ஏஜென்சி';
+    return settings.shopName;
+  }
+  return settings.shopName || 'SSS CHICKEN AGENCY';
+}
+
+// Helper function to get shop address based on active language
+export function getShopDisplayAddress(settings: ShopSettings, lang: LanguageCode): string {
+  if (lang === 'ta') {
+    if (settings.addressTa && settings.addressTa.trim()) return settings.addressTa;
+    if (settings.address?.includes('PONDY MAIN ROAD') || settings.address?.includes('VILLIANUR') || !settings.address) {
+      return 'எண் 6, பாண்டி மெயின் ரோடு, சுல்தான்பேட்டை, வில்லியனூர், புதுச்சேரி – 605 110';
+    }
+    return settings.address;
+  }
+  return settings.address || 'NO 6, PONDY MAIN ROAD, SULTHANPET, VILLIANUR, PUDUCHERRY - 605 110';
+}
+
+// Helper function to resolve item name to the current active bill language
+export function resolveItemDisplayName(
+  item: { productId?: string; productName: string },
+  products: ProductItem[] = [],
+  lang: LanguageCode
+): string {
+  // 1. Try finding by productId in loaded products
+  if (item.productId) {
+    const p = products.find((x) => x.id === item.productId);
+    if (p) return getProductName(p, lang);
+    const def = DEFAULT_PRODUCTS.find((x) => x.id === item.productId);
+    if (def) return getProductName(def, lang);
+  }
+
+  // 2. Try special cases like gravy piece
+  const cleanName = item.productName?.trim().toLowerCase() || '';
+  if (cleanName === 'gravy piece' || cleanName === 'கிரேவி துண்டு' || cleanName === 'கிரேவி துண்டுகள்') {
+    return lang === 'ta' ? 'கிரேவி துண்டுகள்' : 'Gravy piece';
+  }
+
+  // 3. Try matching productName across defaults
+  const matched = (products.length > 0 ? products : DEFAULT_PRODUCTS).find(
+    (x) =>
+      x.name?.trim().toLowerCase() === cleanName ||
+      x.nameEn?.trim().toLowerCase() === cleanName ||
+      x.nameTa?.trim().toLowerCase() === cleanName
+  );
+
+  if (matched) {
+    return getProductName(matched, lang);
+  }
+
+  return item.productName;
+}
+
+// Helper function to resolve hotel name to the current active bill language
+export function resolveHotelDisplayName(
+  hotelName: string,
+  hotelId: string | undefined,
+  hotels: HotelItem[] = [],
+  lang: LanguageCode
+): string {
+  if (hotelId) {
+    const h = hotels.find((x) => x.id === hotelId);
+    if (h) return getHotelName(h, lang);
+    const defH = DEFAULT_HOTELS.find((x) => x.id === hotelId);
+    if (defH) return getHotelName(defH, lang);
+  }
+
+  const matched = (hotels.length > 0 ? hotels : DEFAULT_HOTELS).find(
+    (x) =>
+      x.nameEn?.trim().toLowerCase() === hotelName?.trim().toLowerCase() ||
+      x.nameTa?.trim().toLowerCase() === hotelName?.trim().toLowerCase()
+  );
+
+  if (matched) {
+    return getHotelName(matched, lang);
+  }
+
+  return hotelName;
 }
 

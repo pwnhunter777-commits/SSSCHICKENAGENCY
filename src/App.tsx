@@ -251,6 +251,7 @@ export default function App() {
             bill={activeReceiptBill}
             settings={settings}
             hotels={hotels}
+            products={products}
             language={language}
             onUpdateHotelPhone={handleUpdateHotelPhone}
             onClose={() => setActiveReceiptBill(null)}
