@@ -78,7 +78,7 @@ export const DEFAULT_PRODUCTS: ProductItem[] = [
   { id: 'p7', name: 'Leg Skinless chicken', nameEn: 'Leg Skinless chicken', nameTa: 'லெக் ஸ்கின்லெஸ்', pricePerKg: 250 },
   { id: 'p8', name: 'Skin chicken', nameEn: 'Skin chicken', nameTa: 'தோல் உள்ள கோழி', pricePerKg: 190 },
   { id: 'p9', name: 'Bone', nameEn: 'Bone', nameTa: 'எலும்பு (சூப் போன்)', pricePerKg: 120 },
-  { id: 'p10', name: 'Gravy piece', nameEn: 'Gravy piece', nameTa: 'கிரேவி துண்டு', pricePerKg: 220 },
+  { id: 'p10', name: 'Gravy piece', nameEn: 'Gravy piece', nameTa: 'கிரேவி துண்டுகள்', pricePerKg: 220 },
   { id: 'p11', name: 'Fry piece', nameEn: 'Fry piece', nameTa: 'வறுவல் துண்டு', pricePerKg: 230 },
 ];
 
@@ -90,13 +90,13 @@ export const DEFAULT_HOTELS: HotelItem[] = [
   { id: 'h5', nameEn: 'Kadhar Hotel', nameTa: 'காதர் ஹோட்டல்' },
   { id: 'h6', nameEn: 'Rahmath Hotel', nameTa: 'ரஹ்மத் ஹோட்டல்' },
   { id: 'h7', nameEn: 'Dhaba', nameTa: 'தாபா' },
-  { id: 'h8', nameEn: 'Santhosh Fast Food', nameTa: 'சந்தோஷ் பாஸ்ட் புட்' },
+  { id: 'h8', nameEn: 'Santhosh Fast Food', nameTa: 'சந்தோஷ் பாஸ்ட் ஃபுட்' },
   { id: 'h9', nameEn: 'Savitha', nameTa: 'சவிதா' },
   { id: 'h10', nameEn: 'Ibrahim Biriyani', nameTa: 'இப்ராஹிம் பிரியாணி' },
   { id: 'h11', nameEn: 'HOPE', nameTa: 'ஹோப் (HOPE)' },
   { id: 'h12', nameEn: 'Murugan Vada', nameTa: 'முருகன் வடை' },
   { id: 'h13', nameEn: 'Saravana Hotel', nameTa: 'சரவணா ஹோட்டல்' },
-  { id: 'h14', nameEn: 'Muniyandi', nameTa: 'முனியாண்டி விலாஸ்' },
+  { id: 'h14', nameEn: 'Muniyandi Vilas', nameTa: 'முனியாண்டி விலாஸ்' },
 ];
 
 export const DEFAULT_SETTINGS: ShopSettings = {

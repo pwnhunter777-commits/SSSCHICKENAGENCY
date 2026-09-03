@@ -19,7 +19,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   const [showLangMenu, setShowLangMenu] = useState(false);
   const [logoLoaded, setLogoLoaded] = useState(true);
   const todayStr = getTodayDateString();
-  const displayDate = formatDisplayDate(todayStr);
+  const displayDate = formatDisplayDate(todayStr, language);
   const t = TRANSLATIONS[language] || TRANSLATIONS.en;
 
   const languages: { code: LanguageCode; label: string; native: string }[] = [

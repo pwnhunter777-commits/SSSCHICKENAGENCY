@@ -431,7 +431,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               <span className="text-xs font-semibold text-slate-200 block mb-0.5">
                 {hasPreviousBalance
                   ? (isTamil ? 'மொத்த பாக்கி தொகை' : 'TOTAL PAYABLE DUE')
-                  : (isTamil ? 'மொத்தம் செலுத்தவேண்டிய தொகை' : 'GRAND TOTAL')}
+                  : (isTamil ? 'மொத்தம் செலுத்த வேண்டிய தொகை' : 'GRAND TOTAL')}
               </span>
               <div className="text-3xl font-black tracking-tight text-white flex items-center justify-center gap-1">
                 <span>{isTamil ? 'ரூ. ' : 'Rs. '}{finalPayableAmount.toLocaleString('en-IN')}/-</span>

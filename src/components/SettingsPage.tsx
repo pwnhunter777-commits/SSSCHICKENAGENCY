@@ -51,7 +51,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
 
   const [formData, setFormData] = useState<ShopSettings>({
     shopName: settings.shopName || '',
-    shopNameTa: settings.shopNameTa || 'எஸ்.எஸ்.எஸ் சிக்கன் ஏஜென்சி',
+    shopNameTa: settings.shopNameTa || 'எஸ்.எஸ்.எஸ். சிக்கன் ஏஜென்சி',
     phoneNumber: settings.phoneNumber || '',
     gstNumber: settings.gstNumber || '',
     address: settings.address || '',

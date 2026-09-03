@@ -185,7 +185,7 @@ export async function generateBillPdfBlob(
     pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(7);
     pdf.setTextColor(100, 116, 139);
-    pdf.text(isTamil ? 'வாடிக்கையாளர் / ஹோட்டல்:' : 'CUSTOMER / HOTEL:', margin + 5, metaBoxY + 4);
+    pdf.text(isTamil ? 'ஹோட்டல் / வாடிக்கையாளர்:' : 'HOTEL / CUSTOMER:', margin + 5, metaBoxY + 4);
 
     pdf.setFont('helvetica', 'bold');
     pdf.setFontSize(11);
@@ -224,19 +224,20 @@ export async function generateBillPdfBlob(
     // Items Table
     const tableBody = bill.items.map((item, idx) => {
       const itemName = resolveItemDisplayName(item, products, lang);
-      const unit = isTamil ? 'கிலோ' : 'KG';
+      const unit = isTamil ? 'கி.கி' : 'KG';
+      const curr = isTamil ? 'ரூ. ' : 'Rs. ';
       return [
         (idx + 1).toString(),
         itemName,
         `${item.kg.toFixed(2)} ${unit}`,
-        `Rs. ${Math.round(item.pricePerKg)}`,
-        `Rs. ${Math.round(item.amount).toLocaleString('en-IN')}`,
+        `${curr}${Math.round(item.pricePerKg)}`,
+        `${curr}${Math.round(item.amount).toLocaleString('en-IN')}`,
       ];
     });
 
     const headers = isTamil
-      ? [['வ.எண்', 'பொருள் பெயர்', 'எடை (கிலோ)', 'விலை (₹)', 'தொகை (₹)']]
-      : [['#', 'ITEM NAME', 'QTY (KG)', 'RATE (Rs)', 'AMOUNT (Rs)']];
+      ? [['வ. எண்.', 'பொருள் விவரம்', 'எடை (கி.கி)', 'விலை (ரூ.)', 'தொகை (ரூ.)']]
+      : [['#', 'ITEM NAME', 'WEIGHT (KG)', 'RATE (Rs)', 'AMOUNT (Rs)']];
 
     autoTable(pdf, {
       startY: curY,
@@ -283,7 +284,7 @@ export async function generateBillPdfBlob(
     pdf.text(isTamil ? 'மொத்த எடை:' : 'TOTAL WEIGHT:', margin + 5, curY + 4.2);
     pdf.setFontSize(9);
     pdf.setTextColor(15, 23, 42);
-    pdf.text(`${bill.totalKg.toFixed(2)} ${isTamil ? 'கிலோ' : 'KG'}`, contentWidth + margin - 5, curY + 4.2, { align: 'right' });
+    pdf.text(`${bill.totalKg.toFixed(2)} ${isTamil ? 'கி.கி' : 'KG'}`, contentWidth + margin - 5, curY + 4.2, { align: 'right' });
     curY += 8;
 
     // Calculations Breakdown
@@ -294,10 +295,10 @@ export async function generateBillPdfBlob(
     pdf.setFont('helvetica', 'bold');
     pdf.setFontSize(9);
     pdf.setTextColor(71, 85, 105);
-    pdf.text(isTamil ? 'நடப்பு பில் தொகை:' : 'Current Bill Amount:', margin + 5, curY + 5.2);
+    pdf.text(isTamil ? 'தற்போதைய பில் தொகை:' : 'Current Bill Amount:', margin + 5, curY + 5.2);
     pdf.setFontSize(10);
     pdf.setTextColor(15, 23, 42);
-    pdf.text(`Rs. ${Math.round(bill.totalAmount).toLocaleString('en-IN')}`, contentWidth + margin - 5, curY + 5.2, {
+    pdf.text(`${isTamil ? 'ரூ. ' : 'Rs. '}${Math.round(bill.totalAmount).toLocaleString('en-IN')}`, contentWidth + margin - 5, curY + 5.2, {
       align: 'right',
     });
 
@@ -310,7 +311,7 @@ export async function generateBillPdfBlob(
       pdf.text(isTamil ? 'பழைய பாக்கி தொகை:' : 'Old Balance (Previous Due):', margin + 5, curY + 11.5);
       pdf.setFontSize(10);
       pdf.text(
-        `Rs. ${Math.round(bill.previousBalance || 0).toLocaleString('en-IN')}`,
+        `${isTamil ? 'ரூ. ' : 'Rs. '}${Math.round(bill.previousBalance || 0).toLocaleString('en-IN')}`,
         contentWidth + margin - 5,
         curY + 11.5,
         { align: 'right' }
@@ -326,14 +327,14 @@ export async function generateBillPdfBlob(
     pdf.setFontSize(8);
     pdf.setTextColor(203, 213, 225);
     const totalLabel = isTamil
-      ? (hasPrevBalance ? 'மொத்த பாக்கி தொகை' : 'செலுத்த வேண்டிய மொத்த தொகை')
+      ? (hasPrevBalance ? 'மொத்த பாக்கி தொகை' : 'மொத்தம் செலுத்த வேண்டிய தொகை')
       : (hasPrevBalance ? 'TOTAL PAYABLE DUE' : 'GRAND TOTAL');
     pdf.text(totalLabel, pageWidth / 2, curY + 4.5, { align: 'center' });
 
     pdf.setFont('helvetica', 'bold');
     pdf.setFontSize(16);
     pdf.setTextColor(255, 255, 255);
-    pdf.text(`Rs. ${finalPayableAmount.toLocaleString('en-IN')}/-`, pageWidth / 2, curY + 11.8, {
+    pdf.text(`${isTamil ? 'ரூ. ' : 'Rs. '}${finalPayableAmount.toLocaleString('en-IN')}/-`, pageWidth / 2, curY + 11.8, {
       align: 'center',
     });
     curY += 17.5;
@@ -344,7 +345,7 @@ export async function generateBillPdfBlob(
       pdf.setFontSize(7.5);
       pdf.setTextColor(15, 23, 42);
       pdf.text(
-        isTamil ? 'UPI மூலம் பணம் செலுத்த QR குறியீட்டை ஸ்கேன் செய்யவும்' : 'SCAN QR CODE TO PAY (UPI / GPay / PhonePe)',
+        isTamil ? 'பணம் செலுத்த QR குறியீட்டை ஸ்கேன் செய்யவும்' : 'SCAN QR CODE TO PAY (UPI)',
         pageWidth / 2,
         curY,
         { align: 'center' }
