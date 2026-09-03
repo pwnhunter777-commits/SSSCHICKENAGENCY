@@ -270,13 +270,13 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
         )}
 
         {/* Receipt Content Area (A5 Sheet Layout) */}
-        <div className="p-3 sm:p-5 overflow-y-auto flex-1 bg-slate-200/80 flex justify-center items-start">
+        <div className="p-3 sm:p-6 overflow-y-auto flex-1 bg-slate-200/80 flex justify-center items-start">
           <div
             id="printable-thermal-receipt"
-            className="w-full max-w-[500px] bg-white border-[2.5px] border-slate-900 rounded-2xl p-4 sm:p-6 text-slate-950 shadow-md font-sans leading-tight"
+            className="w-full max-w-[480px] bg-white border-2 border-slate-950 rounded-lg p-4 sm:p-5 text-slate-950 shadow-md font-sans leading-tight"
           >
             {/* 1. STORE NAME & MAIN DETAILS HEADER */}
-            <div className="text-center pb-3">
+            <div className="text-center pb-2.5">
               <h1 className="font-black text-2xl tracking-wide text-slate-950 leading-tight">
                 {shopName}
               </h1>
@@ -297,6 +297,9 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                 </span>
               </div>
             </div>
+
+            {/* Divider line under header */}
+            <div className="border-b border-slate-300 -mx-4 sm:-mx-5 my-2.5" />
 
             {/* 2. HOTEL NAME & BILL META (DATE, TIME, BILL NO) */}
             <div className="my-2.5 p-3 bg-white rounded-lg border border-slate-300 grid grid-cols-12 gap-2 text-xs">

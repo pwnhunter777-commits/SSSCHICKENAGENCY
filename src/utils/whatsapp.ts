@@ -56,24 +56,37 @@ export async function generateBillPdfBlob(
         quality: 1,
       });
 
+      // Probe image dimensions to dynamically size PDF height depending upon items entered
+      let imgWidthPx = 0;
+      let imgHeightPx = 0;
+
+      await new Promise<void>((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+          imgWidthPx = img.naturalWidth || img.width;
+          imgHeightPx = img.naturalHeight || img.height;
+          resolve();
+        };
+        img.onerror = (err) => reject(err);
+        img.src = dataUrl;
+      });
+
+      const pdfWidth = 148; // Standard width in mm
+      const margin = 4; // 4mm margin on top, bottom, left, right
+      const printableWidth = pdfWidth - margin * 2; // 140mm
+
+      const imgHeightMm = (imgHeightPx * printableWidth) / (imgWidthPx || 1);
+      // Dynamic height dependent upon the items entered, plus clean top & bottom margins
+      const dynamicPageHeight = Math.ceil(imgHeightMm + margin * 2);
+
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
-        format: [148, 210], // Standard A5 dimensions (148mm x 210mm)
+        format: [pdfWidth, dynamicPageHeight],
         compress: true,
       });
 
-      const pdfWidth = 148;
-      const pdfHeight = 210;
-      const margin = 4;
-      const printableWidth = pdfWidth - margin * 2; // 140mm
-
-      const imgProps = pdf.getImageProperties(dataUrl);
-      const imgHeight = (imgProps.height * printableWidth) / imgProps.width;
-
-      const topPos = imgHeight < pdfHeight - margin * 2 ? (pdfHeight - imgHeight) / 2 : margin;
-
-      pdf.addImage(dataUrl, 'PNG', margin, topPos, printableWidth, imgHeight, undefined, 'FAST');
+      pdf.addImage(dataUrl, 'PNG', margin, margin, printableWidth, imgHeightMm, undefined, 'FAST');
       return pdf.output('blob');
     } catch (domErr) {
       console.warn('DOM to PDF image capture skipped/failed, using vector fallback:', domErr);
@@ -91,9 +104,28 @@ export async function generateBillPdfBlob(
 
     const isTamil = lang === 'ta';
     const pageWidth = 148;
-    const pageHeight = 210;
     const margin = 6;
     const contentWidth = pageWidth - margin * 2; // 136mm
+    const qrDataUrl = getQrCodeDataUrl();
+    const upiId = settings.upiId || 'NAZIRAHAMED0003@okhdfcbank';
+
+    // Calculate dynamic height based on number of items entered and present sections
+    const itemCount = Math.max(1, bill.items.length);
+    const tableHeight = 10 + itemCount * 7.5;
+    const metaBoxH = recipientPhone ? 15 : 13;
+    const calcBoxH = hasPrevBalance ? 14 : 8;
+    const qrSectionH = qrDataUrl ? 38 : 10;
+
+    const estimatedContentH =
+      19 + // Store header
+      metaBoxH + 4 + // Customer & meta box
+      tableHeight + 4 + // Items table
+      8 + // Total weight strip
+      calcBoxH + 4 + // Calculation box
+      17.5 + // Grand total banner
+      qrSectionH + 4; // QR code & UPI section
+
+    const pageHeight = Math.ceil(estimatedContentH + margin * 2);
 
     const pdf = new jsPDF({
       orientation: 'portrait',
@@ -145,7 +177,6 @@ export async function generateBillPdfBlob(
 
     // Customer & Bill Details Box
     const metaBoxY = curY;
-    const metaBoxH = recipientPhone ? 15 : 13;
     pdf.setFillColor(248, 250, 252);
     pdf.setDrawColor(203, 213, 225);
     pdf.roundedRect(margin + 2, metaBoxY, contentWidth - 4, metaBoxH, 1, 1, 'FD');
@@ -256,7 +287,6 @@ export async function generateBillPdfBlob(
     curY += 8;
 
     // Calculations Breakdown
-    const calcBoxH = hasPrevBalance ? 14 : 8;
     pdf.setFillColor(248, 250, 252);
     pdf.setDrawColor(203, 213, 225);
     pdf.roundedRect(margin + 2, curY, contentWidth - 4, calcBoxH, 1, 1, 'FD');
@@ -309,9 +339,6 @@ export async function generateBillPdfBlob(
     curY += 17.5;
 
     // UPI QR Code
-    const upiId = settings.upiId || 'NAZIRAHAMED0003@okhdfcbank';
-    const qrDataUrl = getQrCodeDataUrl();
-
     if (qrDataUrl) {
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(7.5);

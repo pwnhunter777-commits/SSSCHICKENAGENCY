@@ -7,8 +7,8 @@
 }
 
 @page {
-  size: A5 portrait;
-  margin: 6mm 8mm;
+  size: auto;
+  margin: 4mm 6mm;
 }
 
 @media print {
