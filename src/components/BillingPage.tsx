@@ -39,7 +39,7 @@ interface BillingPageProps {
   settings: ShopSettings;
   language: LanguageCode;
   onSaveBill: (bill: Bill) => void;
-  onOpenReceipt: (bill: Bill) => void;
+  onOpenReceipt: (bill: Bill, isDraft?: boolean) => void;
   onNavigateToDailyPrice: () => void;
   onNavigateToHotel?: () => void;
   onAddHotel?: (nameEn: string, nameTa: string) => void;
@@ -379,14 +379,17 @@ export const BillingPage: React.FC<BillingPageProps> = ({
       netTotalWithBalance: prevBal !== 0 ? netTotalWithBal : totalAmount,
     };
 
-    // Save locally
-    onSaveBill(newBill);
-
     // Reset current form inputs
     setBillingInputs({});
 
-    // Open receipt modal
-    onOpenReceipt(newBill);
+    // If bluetooth print was requested directly, save immediately
+    if (_triggerBluetooth) {
+      onSaveBill(newBill);
+      onOpenReceipt(newBill, false);
+    } else {
+      // Draft mode: the bill is added to Bill History only after clicking Print, WhatsApp, or Save
+      onOpenReceipt(newBill, true);
+    }
   };
 
   const handleClearAll = () => {

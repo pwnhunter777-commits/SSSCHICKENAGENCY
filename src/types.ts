@@ -7,6 +7,8 @@ export interface ShopSettings {
   addressTa?: string;
   upiId: string;
   billWidthCm?: number;
+  fontSizeScale?: number; // percentage, e.g. 80 to 140, default 100
+  isBoldText?: boolean; // whether all text across the app is bolded
 }
 
 export interface ProductItem {
@@ -108,6 +110,7 @@ export const DEFAULT_SETTINGS: ShopSettings = {
   addressTa: 'எண் 6, பாண்டி மெயின் ரோடு, சுல்தான்பேட்டை, வில்லியனூர், புதுச்சேரி – 605 110',
   upiId: 'NAZIRAHAMED0003@okhdfcbank',
   billWidthCm: 17,
+  fontSizeScale: 100,
 };
 
 // Helper function to get product name based on active language

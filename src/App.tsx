@@ -31,7 +31,18 @@ import { ReceiptModal } from './components/ReceiptModal';
 
 export default function App() {
   // App State with LocalStorage Initialization
-  const [settings, setSettings] = useState<ShopSettings>(() => loadSettings());
+  const [settings, setSettings] = useState<ShopSettings>(() => {
+    const loaded = loadSettings();
+    if (typeof document !== 'undefined') {
+      if (loaded?.fontSizeScale) {
+        document.documentElement.style.fontSize = `${loaded.fontSizeScale}%`;
+      }
+      if (loaded?.isBoldText) {
+        document.body.classList.add('app-bold-mode');
+      }
+    }
+    return loaded;
+  });
   const [products, setProducts] = useState<ProductItem[]>(() => loadProducts());
   const [dailyPrices, setDailyPrices] = useState<DailyPriceRecord | null>(() => getTodayDailyPrices());
   const [bills, setBills] = useState<Bill[]>(() => loadBills());
@@ -47,7 +58,34 @@ export default function App() {
   });
 
   // Receipt Modal State
-  const [activeReceiptBill, setActiveReceiptBill] = useState<Bill | null>(null);
+  const [activeReceiptState, setActiveReceiptState] = useState<{ bill: Bill; isDraft?: boolean } | null>(null);
+
+  // Synchronize dynamic font size scale to root document
+  useEffect(() => {
+    const scale = settings.fontSizeScale || 100;
+    document.documentElement.style.fontSize = `${scale}%`;
+  }, [settings.fontSizeScale]);
+
+  // Synchronize bold text mode to root body
+  useEffect(() => {
+    if (settings.isBoldText) {
+      document.body.classList.add('app-bold-mode');
+    } else {
+      document.body.classList.remove('app-bold-mode');
+    }
+  }, [settings.isBoldText]);
+
+  const handleToggleBoldText = () => {
+    const nextBold = !settings.isBoldText;
+    const updated = { ...settings, isBoldText: nextBold };
+    setSettings(updated);
+    saveSettings(updated);
+    if (nextBold) {
+      document.body.classList.add('app-bold-mode');
+    } else {
+      document.body.classList.remove('app-bold-mode');
+    }
+  };
 
   // Handlers
   const handleSavePrices = (prices: Record<string, number>) => {
@@ -160,6 +198,7 @@ export default function App() {
           settings={settings}
           language={language}
           onLanguageChange={handleLanguageChange}
+          onToggleBold={handleToggleBoldText}
         />
 
         {/* Main 6 Pages Body */}
@@ -186,7 +225,7 @@ export default function App() {
               settings={settings}
               language={language}
               onSaveBill={handleSaveBill}
-              onOpenReceipt={(bill) => setActiveReceiptBill(bill)}
+              onOpenReceipt={(bill, isDraft) => setActiveReceiptState({ bill, isDraft: !!isDraft })}
               onNavigateToDailyPrice={() => setCurrentPage('daily-price')}
               onNavigateToHotel={() => setCurrentPage('hotel')}
               onAddHotel={handleAddHotel}
@@ -199,7 +238,7 @@ export default function App() {
               settings={settings}
               language={language}
               onDeleteBill={handleDeleteBill}
-              onReprintBill={(bill) => setActiveReceiptBill(bill)}
+              onReprintBill={(bill) => setActiveReceiptState({ bill, isDraft: false })}
             />
           )}
 
@@ -221,7 +260,7 @@ export default function App() {
               language={language}
               onAddPayment={handleAddPayment}
               onDeletePayment={handleDeletePayment}
-              onReprintBill={(bill) => setActiveReceiptBill(bill)}
+              onReprintBill={(bill) => setActiveReceiptState({ bill, isDraft: false })}
             />
           )}
 
@@ -233,6 +272,7 @@ export default function App() {
               language={language}
               onSaveSettings={handleSaveSettings}
               onSaveHotels={handleSaveHotels}
+              onNavigateToMain={() => setCurrentPage('billing')}
               onDataRestored={handleDataRestored}
             />
           )}
@@ -246,15 +286,17 @@ export default function App() {
         />
 
         {/* Printable / Bluetooth Receipt Modal */}
-        {activeReceiptBill && (
+        {activeReceiptState && (
           <ReceiptModal
-            bill={activeReceiptBill}
+            bill={activeReceiptState.bill}
+            isDraft={activeReceiptState.isDraft}
             settings={settings}
             hotels={hotels}
             products={products}
             language={language}
+            onSaveBill={handleSaveBill}
             onUpdateHotelPhone={handleUpdateHotelPhone}
-            onClose={() => setActiveReceiptBill(null)}
+            onClose={() => setActiveReceiptState(null)}
           />
         )}
       </div>

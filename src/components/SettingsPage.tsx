@@ -21,6 +21,9 @@ import {
   Search,
   MessageCircle,
   Printer,
+  Minus,
+  Type,
+  Bold,
 } from 'lucide-react';
 import { appLogo } from '../assets/logo';
 import { Bill, DEFAULT_HOTELS, getHotelName, HotelItem, LanguageCode, ShopSettings } from '../types';
@@ -35,6 +38,7 @@ interface SettingsPageProps {
   onSaveSettings: (newSettings: ShopSettings) => void;
   onSaveHotels?: (hotels: HotelItem[]) => void;
   onDataRestored?: () => void;
+  onNavigateToMain?: () => void;
 }
 
 export const SettingsPage: React.FC<SettingsPageProps> = ({
@@ -45,6 +49,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   onSaveSettings,
   onSaveHotels,
   onDataRestored,
+  onNavigateToMain,
 }) => {
   const t = TRANSLATIONS[language] || TRANSLATIONS.en;
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -58,6 +63,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     addressTa: settings.addressTa || 'எண் 6, பாண்டி மெயின் ரோடு, சுல்தான்பேட்டை, வில்லியனூர், புதுச்சேரி - 605 110',
     upiId: settings.upiId || '',
     billWidthCm: settings.billWidthCm || 17,
+    fontSizeScale: settings.fontSizeScale || 100,
   });
 
   const [newHotelNameEn, setNewHotelNameEn] = useState('');
@@ -68,11 +74,49 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [fileStatus, setFileStatus] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  const handleChange = (field: keyof ShopSettings, value: string | number) => {
+  const handleChange = (field: keyof ShopSettings, value: string | number | boolean) => {
     setFormData((prev) => ({
       ...prev,
       [field]: value,
     }));
+  };
+
+  const currentFontSizeScale = formData.fontSizeScale || 100;
+
+  const handleDecreaseFontSize = () => {
+    const nextScale = Math.max(75, currentFontSizeScale - 10);
+    handleChange('fontSizeScale', nextScale);
+    onSaveSettings({ ...formData, fontSizeScale: nextScale });
+    document.documentElement.style.fontSize = `${nextScale}%`;
+  };
+
+  const handleIncreaseFontSize = () => {
+    const nextScale = Math.min(165, currentFontSizeScale + 10);
+    handleChange('fontSizeScale', nextScale);
+    onSaveSettings({ ...formData, fontSizeScale: nextScale });
+    document.documentElement.style.fontSize = `${nextScale}%`;
+  };
+
+  const isBoldActive = Boolean(formData.isBoldText);
+
+  const handleToggleBold = () => {
+    const nextBold = !isBoldActive;
+    handleChange('isBoldText', nextBold);
+    onSaveSettings({ ...formData, isBoldText: nextBold });
+    if (nextBold) {
+      document.body.classList.add('app-bold-mode');
+    } else {
+      document.body.classList.remove('app-bold-mode');
+    }
+  };
+
+  const getScaleLabel = (scale: number) => {
+    if (scale <= 85) return language === 'ta' ? 'சிறியது (Small)' : 'Small';
+    if (scale <= 95) return language === 'ta' ? 'சிறிது சிறிதானது' : 'Slightly Small';
+    if (scale === 100) return language === 'ta' ? 'இயல்பு நிலை (Normal)' : 'Normal (100%)';
+    if (scale <= 115) return language === 'ta' ? 'நடுத்தரம் (Medium)' : 'Medium';
+    if (scale <= 135) return language === 'ta' ? 'பெரியது (Large)' : 'Large';
+    return language === 'ta' ? 'மிகப் பெரியது (Extra Large)' : 'Extra Large';
   };
 
   const handleAddHotel = (e: React.FormEvent) => {
@@ -183,9 +227,9 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     e.preventDefault();
     onSaveSettings(formData);
     setSavedSuccess(true);
-    setTimeout(() => {
-      setSavedSuccess(false);
-    }, 4000);
+    if (onNavigateToMain) {
+      onNavigateToMain();
+    }
   };
 
   const handleExportBackup = () => {
@@ -391,6 +435,77 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               {language === 'ta' ? 'இயல்புநிலை: 17 செ.மீ' : 'Default: 17 cm'}
             </span>
           </div>
+        </div>
+
+        {/* 7. Font Size Controller (Increase / Decrease Buttons) */}
+        <div className="bg-emerald-50/60 border border-emerald-300/80 rounded-2xl p-3.5 space-y-3">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
+              <Type className="w-4 h-4 text-emerald-700" />
+              <span>7. {language === 'ta' ? 'பில் மற்றும் எழுத்து அளவு (Font Size)' : 'Bill & App Font Size'}</span>
+            </label>
+            <span className="text-[11px] font-bold text-emerald-900 bg-emerald-100/80 px-2.5 py-0.5 rounded-full border border-emerald-200">
+              {getScaleLabel(currentFontSizeScale)}
+            </span>
+          </div>
+
+          <p className="text-[11px] text-gray-600 leading-snug">
+            {language === 'ta'
+              ? 'எழுத்து அளவை கூட்டவும் அல்லது குறைக்கவும். ஆப் மற்றும் பில்லில் உள்ள அனைத்து எழுத்துக்களும் உடனே மாறும்.'
+              : 'Increase or decrease text size. All text across the app and bills will dynamically resize.'}
+          </p>
+
+          <div className="flex items-center justify-between gap-2 pt-1">
+            {/* Decrease Button */}
+            <button
+              id="btn-decrease-font-size"
+              type="button"
+              onClick={handleDecreaseFontSize}
+              disabled={currentFontSizeScale <= 75}
+              className="flex-1 py-3 px-3 bg-white hover:bg-slate-100 active:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed border border-emerald-300 text-emerald-950 rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-2xs transition-all active:scale-95 touch-manipulation"
+              title={language === 'ta' ? 'எழுத்து அளவை சிறிதாக்கு' : 'Decrease font size'}
+            >
+              <Minus className="w-4 h-4 text-emerald-700" />
+              <span>{language === 'ta' ? 'அளவு குறை (-)' : 'Decrease (-)'}</span>
+            </button>
+
+            {/* Current Value Display Badge */}
+            <div className="px-4 py-2 bg-emerald-800 text-white rounded-xl font-mono font-black text-base shadow-xs min-w-[72px] text-center">
+              {currentFontSizeScale}%
+            </div>
+
+            {/* Increase Button */}
+            <button
+              id="btn-increase-font-size"
+              type="button"
+              onClick={handleIncreaseFontSize}
+              disabled={currentFontSizeScale >= 165}
+              className="flex-1 py-3 px-3 bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-xs transition-all active:scale-95 touch-manipulation"
+              title={language === 'ta' ? 'எழுத்து அளவை பெரிதாக்கு' : 'Increase font size'}
+            >
+              <Plus className="w-4 h-4 text-emerald-200" />
+              <span>{language === 'ta' ? 'அளவு கூட்டு (+)' : 'Increase (+)'}</span>
+            </button>
+          </div>
+
+          {/* Bold Text Toggle Button */}
+          <button
+            id="btn-toggle-bold-text"
+            type="button"
+            onClick={handleToggleBold}
+            className={`w-full py-3 px-3 rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs transition-all active:scale-95 touch-manipulation border ${
+              isBoldActive
+                ? 'bg-slate-900 text-white border-slate-950 ring-2 ring-emerald-500 shadow-sm'
+                : 'bg-white hover:bg-slate-100 text-slate-800 border-emerald-300'
+            }`}
+          >
+            <Bold className={`w-4 h-4 ${isBoldActive ? 'text-amber-300 stroke-[3]' : 'text-slate-700'}`} />
+            <span>
+              {language === 'ta'
+                ? (isBoldActive ? '✓ தடித்த எழுத்து இயக்கத்தில் உள்ளது (Bold ON)' : 'எழுத்தை தடிமனாக்கு (Make Text Bold)')
+                : (isBoldActive ? '✓ Bold Text is ON' : 'Make Text Bold (B)')}
+            </span>
+          </button>
         </div>
 
         {/* Save Button */}

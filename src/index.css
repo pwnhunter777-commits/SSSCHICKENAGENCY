@@ -1,5 +1,18 @@
 @import "tailwindcss";
 
+/* App-wide Bold Text Mode */
+body.app-bold-mode,
+body.app-bold-mode * {
+  font-weight: 700 !important;
+  -webkit-font-smoothing: antialiased;
+}
+
+body.app-bold-mode .font-bold,
+body.app-bold-mode .font-black,
+body.app-bold-mode .font-extrabold {
+  font-weight: 900 !important;
+}
+
 @layer utilities {
   .safe-area-pb {
     padding-bottom: env(safe-area-inset-bottom, 0.5rem);

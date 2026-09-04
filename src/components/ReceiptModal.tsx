@@ -40,6 +40,8 @@ interface ReceiptModalProps {
   hotels?: HotelItem[];
   products?: ProductItem[];
   language: LanguageCode;
+  isDraft?: boolean;
+  onSaveBill?: (bill: Bill) => void;
   onUpdateHotelPhone?: (hotelIdOrName: string, phone: string) => void;
   onClose: () => void;
 }
@@ -50,6 +52,8 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   hotels = [],
   products = [],
   language,
+  isDraft = false,
+  onSaveBill,
   onUpdateHotelPhone,
   onClose,
 }) => {
@@ -60,11 +64,17 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
   const [showWhatsAppInput, setShowWhatsAppInput] = useState(false);
   const [recipientPhone, setRecipientPhone] = useState('');
+  const [isSavedToHistory, setIsSavedToHistory] = useState(!isDraft);
 
   // Keep billLang synced if language prop changes
   useEffect(() => {
     setBillLang(language);
   }, [language]);
+
+  // Sync draft / saved status if bill changes
+  useEffect(() => {
+    setIsSavedToHistory(!isDraft);
+  }, [isDraft, bill?.id]);
 
   const t = TRANSLATIONS[billLang] || TRANSLATIONS.en;
   const isTamil = billLang === 'ta';
@@ -81,6 +91,32 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   }, [bill, hotels]);
 
   if (!bill) return null;
+
+  const fontScale = (settings.fontSizeScale || 100) / 100;
+
+  // Add bill to history on explicit user action (print, whatsapp, pdf download, or save)
+  const ensureSavedToHistory = () => {
+    if (!isSavedToHistory && onSaveBill && bill) {
+      onSaveBill(bill);
+      setIsSavedToHistory(true);
+      setStatusMessage({
+        type: 'success',
+        text: isTamil ? '✓ பில் வரலாற்றில் சேர்க்கப்பட்டது!' : '✓ Bill saved to History!',
+      });
+    }
+  };
+
+  const handleCloseModal = () => {
+    if (!isSavedToHistory) {
+      const confirmClose = window.confirm(
+        isTamil
+          ? 'இந்த பில் இன்னும் பில் வரலாற்றில் சேமிக்கப்படவில்லை. நிச்சயமாக நீக்கி மூடவா?'
+          : 'This bill is not saved to history yet. Are you sure you want to discard and close?'
+      );
+      if (!confirmClose) return;
+    }
+    onClose();
+  };
 
   const hasPreviousBalance = bill.previousBalance !== undefined && bill.previousBalance !== 0;
   const finalPayableAmount = Math.round(
@@ -101,10 +137,12 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   const billDateStr = formatDisplayDate(bill.date, billLang);
 
   const handlePrint = () => {
+    ensureSavedToHistory();
     window.print();
   };
 
   const handleDownloadPdf = async () => {
+    ensureSavedToHistory();
     setIsDownloadingPdf(true);
     setStatusMessage({
       type: 'info',
@@ -141,6 +179,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   };
 
   const handleSendWhatsAppPdf = async () => {
+    ensureSavedToHistory();
     setIsSharingWhatsApp(true);
     setStatusMessage({
       type: 'info',
@@ -195,16 +234,23 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
             <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center">
               <FileText className="w-4 h-4 text-emerald-400" />
             </div>
-            <div>
-              <h3 className="font-bold text-base leading-tight flex items-center gap-2">
-                <span>{t.printReceipt}</span>
+            <div className="flex items-center gap-2">
+              <h3 className="font-extrabold text-sm sm:text-base flex items-center gap-2">
+                <span>{isTamil ? 'பில்' : 'Bill'}</span>
                 <span className="bg-slate-800 text-emerald-400 text-xs px-2 py-0.5 rounded font-mono font-bold">
                   #{bill.billNumber}
                 </span>
               </h3>
-              <span className="text-xs text-slate-300">
-                {isTamil ? 'A5 தாள் பில் ரசீது' : 'A5 Sheet Invoice'}
-              </span>
+              {!isSavedToHistory ? (
+                <span className="bg-amber-500/20 text-amber-300 border border-amber-400/40 text-[10px] sm:text-[11px] px-2 py-0.5 rounded-full font-bold">
+                  {t.draftBillBadge || (isTamil ? 'வரைவு' : 'Draft')}
+                </span>
+              ) : (
+                <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 text-[10px] sm:text-[11px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+                  <Check className="w-3 h-3 text-emerald-400" />
+                  <span>{t.savedBillBadge || (isTamil ? 'வரலாற்றில் உள்ளது' : 'Saved')}</span>
+                </span>
+              )}
             </div>
           </div>
 
@@ -240,7 +286,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
             <button
               id="close-receipt-modal-btn"
               type="button"
-              onClick={onClose}
+              onClick={handleCloseModal}
               className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center text-white transition-all"
               title="Close"
             >
@@ -273,7 +319,10 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
         <div className="p-3 sm:p-6 overflow-y-auto flex-1 bg-slate-200/80 flex justify-center items-start">
           <div
             id="printable-thermal-receipt"
-            className="w-full max-w-[480px] bg-white border-2 border-slate-950 rounded-lg p-4 sm:p-5 text-slate-950 shadow-md font-sans leading-tight"
+            style={{
+              fontSize: `${Math.max(0.85, Math.min(1.4, fontScale))}rem`,
+            }}
+            className="w-full max-w-[480px] bg-white border-2 border-slate-950 rounded-lg p-4 sm:p-5 text-slate-950 shadow-md font-sans leading-tight transition-all"
           >
             {/* 1. STORE NAME & MAIN DETAILS HEADER */}
             <div className="text-center pb-2.5">
@@ -466,6 +515,19 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
 
         {/* Modal Action Buttons */}
         <div className="p-3 bg-slate-50 border-t border-slate-200 flex flex-col gap-2">
+          {/* Direct Save to History Button if not already saved */}
+          {!isSavedToHistory && (
+            <button
+              id="btn-save-draft-bill"
+              type="button"
+              onClick={ensureSavedToHistory}
+              className="w-full py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs transition-all touch-manipulation active:scale-[0.99]"
+            >
+              <Check className="w-4 h-4" />
+              <span>{t.saveToHistoryBtn || (isTamil ? 'பில் வரலாற்றில் சேர்க்க' : 'Save to Bill History')}</span>
+            </button>
+          )}
+
           {/* 1. WhatsApp as A5 PDF */}
           <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-2 space-y-1.5">
             {!showWhatsAppInput ? (
@@ -547,7 +609,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
           <button
             id="modal-cancel-btn"
             type="button"
-            onClick={onClose}
+            onClick={handleCloseModal}
             className="w-full py-1 bg-transparent hover:bg-slate-200 text-slate-500 text-xs font-semibold rounded-lg transition-colors"
           >
             {isTamil ? 'மூடு' : 'Close'}

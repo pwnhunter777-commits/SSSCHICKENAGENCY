@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Calendar, Globe, Store } from 'lucide-react';
+import { Bold, Calendar, Globe, Store } from 'lucide-react';
 import { appLogo } from '../assets/logo';
 import { LanguageCode, ShopSettings } from '../types';
 import { formatDisplayDate, getTodayDateString } from '../utils/storage';
@@ -9,12 +9,14 @@ interface AppHeaderProps {
   settings: ShopSettings;
   language: LanguageCode;
   onLanguageChange: (lang: LanguageCode) => void;
+  onToggleBold?: () => void;
 }
 
 export const AppHeader: React.FC<AppHeaderProps> = ({
   settings,
   language,
   onLanguageChange,
+  onToggleBold,
 }) => {
   const [showLangMenu, setShowLangMenu] = useState(false);
   const [logoLoaded, setLogoLoaded] = useState(true);
@@ -59,6 +61,28 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 
         {/* Language & Date Actions */}
         <div className="flex items-center gap-1.5 flex-shrink-0">
+          {/* Bold Text Toggle Button */}
+          {onToggleBold && (
+            <button
+              id="btn-header-toggle-bold"
+              type="button"
+              onClick={onToggleBold}
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-black backdrop-blur-xs transition-all border active:scale-95 touch-manipulation ${
+                settings.isBoldText
+                  ? 'bg-amber-400 text-slate-950 border-amber-300 shadow-sm'
+                  : 'bg-white/15 hover:bg-white/25 text-white border-white/20'
+              }`}
+              title={
+                language === 'ta'
+                  ? (settings.isBoldText ? 'தடித்த எழுத்து இயக்கத்தில் உள்ளது' : 'எழுத்தை தடிமனாக்கு (Bold)')
+                  : (settings.isBoldText ? 'Bold Text is ON' : 'Make Text Bold')
+              }
+            >
+              <Bold className="w-3.5 h-3.5 stroke-[3]" />
+              <span className="font-extrabold">{settings.isBoldText ? 'B (ON)' : 'B'}</span>
+            </button>
+          )}
+
           {/* Language Selector */}
           <div className="relative">
             <button
