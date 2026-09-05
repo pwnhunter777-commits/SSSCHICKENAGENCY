@@ -8,6 +8,10 @@ import {
   ShoppingBag,
   X,
   ChevronDown,
+  ChevronUp,
+  Percent,
+  Tag,
+  RotateCcw,
   IndianRupee,
   ArrowRight,
   Trash2,
@@ -76,10 +80,21 @@ export const BillingPage: React.FC<BillingPageProps> = ({
   const [newHotelNameTa, setNewHotelNameTa] = useState<string>('');
   const [addNotification, setAddNotification] = useState<string | null>(null);
 
-  // Billing items input state: map of productId -> { kgInput, priceInput, rateInput }
+  // Price Reduce State
+  const [isReduceOpen, setIsReduceOpen] = useState<boolean>(false);
+  const [reduceAmountInput, setReduceAmountInput] = useState<string>('5');
+  // Multi-select product IDs for reduction
+  const [selectedReduceProductIds, setSelectedReduceProductIds] = useState<string[]>(
+    products.map((p) => p.id)
+  );
+  // Map of productId -> discount amount (e.g. { 'p1': 5 })
+  const [productReductions, setProductReductions] = useState<Record<string, number>>({});
+  const [reduceNotification, setReduceNotification] = useState<string | null>(null);
+
+  // Billing items input state: map of productId -> { kgInput, priceInput }
   const [billingInputs, setBillingInputs] = useState<Record<string, ProductBillingState>>({});
 
-  // Base rate from daily prices or product default
+  // Base rate before discount
   const getBaseProductRate = (product: ProductItem): number => {
     if (dailyPrices && dailyPrices.prices[product.id] !== undefined) {
       return dailyPrices.prices[product.id];
@@ -87,11 +102,14 @@ export const BillingPage: React.FC<BillingPageProps> = ({
     return product.pricePerKg || 0;
   };
 
+  // Active rate after per-product reduction
   const getProductRate = (product: ProductItem): number => {
-    return getBaseProductRate(product);
+    const base = getBaseProductRate(product);
+    const reduction = productReductions[product.id] || 0;
+    return Math.max(0, base - reduction);
   };
 
-  // Helper to determine effective KG price (custom edited or daily price)
+  // Helper to determine effective KG price (custom edited or daily price - reduction)
   const getActiveRate = (productId: string): number => {
     const existing = billingInputs[productId];
     if (existing?.rateInput !== undefined && existing.rateInput !== '' && !isNaN(parseFloat(existing.rateInput))) {
@@ -186,6 +204,122 @@ export const BillingPage: React.FC<BillingPageProps> = ({
     });
   };
 
+  // Toggle a single product in the multi-select reduction list
+  const handleToggleReduceProduct = (prodId: string) => {
+    setSelectedReduceProductIds((prev) =>
+      prev.includes(prodId) ? prev.filter((id) => id !== prodId) : [...prev, prodId]
+    );
+  };
+
+  const handleSelectAllReduceProducts = () => {
+    setSelectedReduceProductIds(products.map((p) => p.id));
+  };
+
+  const handleDeselectAllReduceProducts = () => {
+    setSelectedReduceProductIds([]);
+  };
+
+  // Apply price reduction for all selected products
+  const handleApplyReduction = (customAmt?: number) => {
+    if (selectedReduceProductIds.length === 0) {
+      setReduceNotification(language === 'ta' ? 'குறைந்தது ஒரு பொருளைத் தேர்ந்தெடுக்கவும்.' : 'Please select at least one product.');
+      setTimeout(() => setReduceNotification(null), 2500);
+      return;
+    }
+
+    const amt = customAmt !== undefined ? customAmt : Math.abs(parseFloat(reduceAmountInput) || 5);
+    const newReductions = { ...productReductions };
+
+    selectedReduceProductIds.forEach((prodId) => {
+      newReductions[prodId] = amt;
+    });
+
+    setProductReductions(newReductions);
+
+    // Recalculate price if KG is already entered for these products
+    setBillingInputs((prev) => {
+      const updated = { ...prev };
+      selectedReduceProductIds.forEach((prodId) => {
+        const prod = products.find((p) => p.id === prodId);
+        if (!prod) return;
+        const existing = updated[prodId];
+        if (existing && existing.kgInput && parseFloat(existing.kgInput) > 0) {
+          const kg = parseFloat(existing.kgInput);
+          const baseRate = getBaseProductRate(prod);
+          const newRate = Math.max(0, baseRate - amt);
+          updated[prodId] = {
+            ...existing,
+            priceInput: Math.round(kg * newRate).toString(),
+          };
+        }
+      });
+      return updated;
+    });
+
+    const count = selectedReduceProductIds.length;
+    setReduceNotification(
+      language === 'ta'
+        ? `${count} பொருட்களுக்கு ₹${amt}/கிலோ குறைக்கப்பட்டது!`
+        : `Reduced ₹${amt}/kg for ${count} product${count > 1 ? 's' : ''}!`
+    );
+    setTimeout(() => setReduceNotification(null), 3500);
+  };
+
+  const handleRemoveProductReduction = (prodId: string) => {
+    const prod = products.find((p) => p.id === prodId);
+    setProductReductions((prev) => {
+      const copy = { ...prev };
+      delete copy[prodId];
+      return copy;
+    });
+
+    if (prod) {
+      const normalRate = getBaseProductRate(prod);
+      setBillingInputs((prev) => {
+        const existing = prev[prodId];
+        if (existing && existing.kgInput && parseFloat(existing.kgInput) > 0) {
+          const kg = parseFloat(existing.kgInput);
+          return {
+            ...prev,
+            [prodId]: {
+              ...existing,
+              priceInput: Math.round(kg * normalRate).toString(),
+            },
+          };
+        }
+        return prev;
+      });
+      const pName = getProductName(prod, language);
+      setReduceNotification(
+        language === 'ta'
+          ? `"${pName}" இயல்பு விலை மீட்டமைக்கப்பட்டது (₹${normalRate}/கிலோ)`
+          : `Restored normal price for "${pName}" (₹${normalRate}/kg)`
+      );
+      setTimeout(() => setReduceNotification(null), 3000);
+    }
+  };
+
+  const handleClearAllReductions = () => {
+    setProductReductions({});
+    setBillingInputs((prev) => {
+      const updated = { ...prev };
+      products.forEach((p) => {
+        const existing = updated[p.id];
+        if (existing && existing.kgInput && parseFloat(existing.kgInput) > 0) {
+          const kg = parseFloat(existing.kgInput);
+          const baseRate = getBaseProductRate(p);
+          updated[p.id] = {
+            ...existing,
+            priceInput: Math.round(kg * baseRate).toString(),
+          };
+        }
+      });
+      return updated;
+    });
+    setReduceNotification(language === 'ta' ? 'அனைத்து விலைக் குறைப்புகளும் ரத்து செய்யப்பட்டன.' : 'All price reductions cleared.');
+    setTimeout(() => setReduceNotification(null), 3000);
+  };
+
   // Calculate active bill items
   const activeBillItems: BillItem[] = useMemo(() => {
     const items: BillItem[] = [];
@@ -210,7 +344,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
       }
     });
     return items;
-  }, [billingInputs, products, dailyPrices, language]);
+  }, [billingInputs, products, dailyPrices, productReductions, language]);
 
   const totalKg = useMemo(() => {
     return activeBillItems.reduce((sum, item) => sum + item.kg, 0);
@@ -586,6 +720,235 @@ export const BillingPage: React.FC<BillingPageProps> = ({
             ) : null}
           </div>
         </div>
+      </div>
+
+      {/* ======================================================== */}
+      {/* PRICE REDUCE CONTAINER (AS REQUESTED) */}
+      {/* ======================================================== */}
+      <div id="price-reduce-container" className="mb-3.5">
+        {/* Main Green Bar matching requested UI */}
+        <div
+          onClick={() => setIsReduceOpen((prev) => !prev)}
+          className="bg-[#00a859] hover:bg-[#00964f] text-white rounded-2xl p-2.5 px-3.5 flex items-center justify-between shadow-md cursor-pointer transition-all active:scale-[0.99] select-none"
+        >
+          {/* Left Text */}
+          <div className="flex items-center gap-2">
+            <Tag className="w-4 h-4 text-emerald-100" />
+            <span className="text-sm sm:text-base font-extrabold tracking-wide">
+              {t.priceReduce}
+            </span>
+            {activeReductionsCount > 0 && (
+              <span className="text-[10px] font-extrabold bg-white text-[#00a859] px-2 py-0.5 rounded-full shadow-2xs">
+                {activeReductionsCount} {language === 'ta' ? 'குறைப்பு' : 'Active'}
+              </span>
+            )}
+          </div>
+
+          {/* Center: -5 / Discount Pill Input Box */}
+          <div
+            className="flex items-center justify-center bg-white text-gray-950 font-black text-sm sm:text-base px-3 py-1 rounded-xl shadow-inner min-w-[60px]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <span>-</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={reduceAmountInput}
+              onChange={(e) => {
+                const val = e.target.value.replace(/[^0-9]/g, '');
+                setReduceAmountInput(val);
+              }}
+              className="w-8 text-center font-black bg-transparent outline-none text-gray-950"
+              placeholder="5"
+            />
+          </div>
+
+          {/* Right: Triangle Chevron */}
+          <div className="flex items-center gap-1 text-black bg-white/90 p-1.5 rounded-lg shadow-2xs">
+            {isReduceOpen ? (
+              <ChevronUp className="w-4 h-4 stroke-[3]" />
+            ) : (
+              <ChevronDown className="w-4 h-4 stroke-[3]" />
+            )}
+          </div>
+        </div>
+
+        {/* Notification when price reduced */}
+        {reduceNotification && (
+          <div className="mt-2 bg-emerald-600 text-white p-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs animate-in fade-in">
+            <Check className="w-4 h-4 flex-shrink-0" />
+            <span>{reduceNotification}</span>
+          </div>
+        )}
+
+        {/* Expanded Dropdown Drawer for Multi-Product Selection */}
+        {isReduceOpen && (
+          <div className="mt-2 bg-white border-2 border-emerald-300 rounded-3xl p-3.5 shadow-md space-y-3 animate-in fade-in slide-in-from-top-2">
+            {/* Header & Select All / Deselect Controls */}
+            <div className="flex items-center justify-between pb-2 border-b border-emerald-100 flex-wrap gap-2">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-950">
+                <Percent className="w-4 h-4 text-emerald-700" />
+                <span>{t.selectProducts} ({selectedReduceProductIds.length}/{products.length})</span>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={handleSelectAllReduceProducts}
+                  className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200"
+                >
+                  {t.selectAll}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeselectAllReduceProducts}
+                  className="text-[11px] font-bold text-gray-600 hover:text-gray-800 bg-gray-100 px-2 py-0.5 rounded-lg"
+                >
+                  {t.clear}
+                </button>
+                {activeReductionsCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleClearAllReductions}
+                    className="text-[11px] font-bold text-red-600 hover:text-red-700 flex items-center gap-1 bg-red-50 px-2 py-0.5 rounded-lg border border-red-200"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>{t.reset}</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Quick Reduction Amount Selector */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+              <span className="text-[11px] font-bold text-gray-500 whitespace-nowrap">{t.amount}:</span>
+              {[2, 3, 5, 10, 15, 20].map((amt) => {
+                const isSelected = reduceAmountInput === amt.toString();
+                return (
+                  <button
+                    key={amt}
+                    type="button"
+                    onClick={() => {
+                      setReduceAmountInput(amt.toString());
+                      handleApplyReduction(amt);
+                    }}
+                    className={`px-2.5 py-1 rounded-xl text-xs font-black transition-all ${
+                      isSelected
+                        ? 'bg-[#00a859] text-white shadow-xs scale-105'
+                        : 'bg-emerald-50 text-emerald-900 hover:bg-emerald-100 border border-emerald-200'
+                    }`}
+                  >
+                    -₹{amt}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Multi-Select Checkbox List of All Chicken Products */}
+            <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+              {products.map((product) => {
+                const baseRate = getBaseProductRate(product);
+                const currentReduction = productReductions[product.id] || 0;
+                const effectiveRate = Math.max(0, baseRate - currentReduction);
+                const isChecked = selectedReduceProductIds.includes(product.id);
+                const hasActiveDiscount = currentReduction > 0;
+                const prodDisplayName = getProductName(product, language);
+
+                const targetDiscountVal = parseFloat(reduceAmountInput) || 5;
+                const previewRate = Math.max(0, baseRate - targetDiscountVal);
+
+                return (
+                  <label
+                    key={product.id}
+                    className={`flex items-center justify-between p-2.5 rounded-2xl border transition-all cursor-pointer select-none ${
+                      isChecked
+                        ? 'bg-emerald-50 border-emerald-500 ring-1 ring-emerald-500/20'
+                        : hasActiveDiscount
+                        ? 'bg-emerald-50/40 border-emerald-300'
+                        : 'bg-gray-50/70 border-gray-200 hover:bg-emerald-50/30'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {/* Multi-select Checkbox */}
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => handleToggleReduceProduct(product.id)}
+                        className="w-4 h-4 text-emerald-600 rounded border-gray-300 focus:ring-emerald-500 cursor-pointer accent-[#00a859]"
+                      />
+                      <div className="truncate">
+                        <span className="text-xs sm:text-sm font-bold text-gray-900 block truncate">
+                          {prodDisplayName}
+                        </span>
+                        <span className="text-[11px] text-gray-500">
+                          {language === 'ta' ? 'வழக்கமான விலை' : 'Regular'}: ₹{baseRate}/kg
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Price Status & Action */}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {hasActiveDiscount ? (
+                        <div className="text-right">
+                          <span className="text-xs font-black text-[#00a859] block">
+                            ₹{effectiveRate}/kg
+                          </span>
+                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded">
+                            -₹{currentReduction} off
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="text-right">
+                          <span className="text-xs font-bold text-gray-700 block">
+                            ₹{baseRate}/kg
+                          </span>
+                          {isChecked && (
+                            <span className="text-[10px] font-bold text-emerald-600">
+                              → ₹{previewRate} (-₹{targetDiscountVal})
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {hasActiveDiscount && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleRemoveProductReduction(product.id);
+                          }}
+                          className="text-gray-400 hover:text-red-500 p-1"
+                          title="Remove discount"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+
+            {/* Apply Reduction Button to All Selected Products */}
+            <div className="pt-1">
+              <button
+                id="btn-apply-price-reduction"
+                type="button"
+                onClick={() => handleApplyReduction()}
+                disabled={selectedReduceProductIds.length === 0}
+                className="w-full py-2.5 px-3 bg-[#00a859] hover:bg-[#00964f] active:bg-emerald-800 disabled:opacity-50 text-white font-extrabold text-xs sm:text-sm rounded-2xl shadow-sm flex items-center justify-center gap-1.5 transition-all active:scale-98"
+              >
+                <Check className="w-4 h-4" />
+                <span>
+                  {language === 'ta'
+                    ? `தேர்ந்தெடுக்கப்பட்ட ${selectedReduceProductIds.length} பொருட்களுக்கு -₹${reduceAmountInput || '5'} குறைக்கவும்`
+                    : `Apply -₹${reduceAmountInput || '5'} to ${selectedReduceProductIds.length} Selected Product${selectedReduceProductIds.length === 1 ? '' : 's'}`}
+                </span>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Products Section Header */}
