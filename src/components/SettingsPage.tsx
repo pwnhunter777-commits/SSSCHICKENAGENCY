@@ -29,6 +29,7 @@ import { appLogo } from '../assets/logo';
 import { Bill, DEFAULT_HOTELS, getHotelName, HotelItem, LanguageCode, ShopSettings } from '../types';
 import { exportAllDataToFile, exportBillsToCSV, importDataFromFile, saveOrUpdateHotelPhone } from '../utils/storage';
 import { TRANSLATIONS } from '../utils/translations';
+import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 
 interface SettingsPageProps {
   settings: ShopSettings;
@@ -70,6 +71,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   const [newHotelNameTa, setNewHotelNameTa] = useState('');
   const [newHotelPhone, setNewHotelPhone] = useState('');
   const [hotelPhoneEdits, setHotelPhoneEdits] = useState<Record<string, string>>({});
+  const [phoneToDelete, setPhoneToDelete] = useState<HotelItem | null>(null);
+  const [resetHotelsConfirm, setResetHotelsConfirm] = useState(false);
   const [hotelSearchQuery, setHotelSearchQuery] = useState('');
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [fileStatus, setFileStatus] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -462,10 +465,10 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               type="button"
               onClick={handleDecreaseFontSize}
               disabled={currentFontSizeScale <= 75}
-              className="flex-1 py-3 px-3 bg-white hover:bg-slate-100 active:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed border border-emerald-300 text-emerald-950 rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-2xs transition-all active:scale-95 touch-manipulation"
+              className="flex-1 py-3 px-3 bg-slate-800 hover:bg-slate-900 active:bg-slate-950 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-md shadow-slate-900/20 transition-all active:scale-95 touch-manipulation"
               title={language === 'ta' ? 'எழுத்து அளவை சிறிதாக்கு' : 'Decrease font size'}
             >
-              <Minus className="w-4 h-4 text-emerald-700" />
+              <Minus className="w-4 h-4 text-white" />
               <span>{language === 'ta' ? 'அளவு குறை (-)' : 'Decrease (-)'}</span>
             </button>
 
@@ -480,10 +483,10 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               type="button"
               onClick={handleIncreaseFontSize}
               disabled={currentFontSizeScale >= 165}
-              className="flex-1 py-3 px-3 bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-xs transition-all active:scale-95 touch-manipulation"
+              className="flex-1 py-3 px-3 bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-md shadow-emerald-700/20 transition-all active:scale-95 touch-manipulation"
               title={language === 'ta' ? 'எழுத்து அளவை பெரிதாக்கு' : 'Increase font size'}
             >
-              <Plus className="w-4 h-4 text-emerald-200" />
+              <Plus className="w-4 h-4 text-white" />
               <span>{language === 'ta' ? 'அளவு கூட்டு (+)' : 'Increase (+)'}</span>
             </button>
           </div>
@@ -493,13 +496,13 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
             id="btn-toggle-bold-text"
             type="button"
             onClick={handleToggleBold}
-            className={`w-full py-3 px-3 rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs transition-all active:scale-95 touch-manipulation border ${
+            className={`w-full py-3 px-3 rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md transition-all active:scale-95 touch-manipulation text-white ${
               isBoldActive
-                ? 'bg-slate-900 text-white border-slate-950 ring-2 ring-emerald-500 shadow-sm'
-                : 'bg-white hover:bg-slate-100 text-slate-800 border-emerald-300'
+                ? 'bg-slate-950 ring-2 ring-emerald-400 shadow-emerald-950/20'
+                : 'bg-slate-800 hover:bg-slate-900 active:bg-slate-950 shadow-slate-900/20'
             }`}
           >
-            <Bold className={`w-4 h-4 ${isBoldActive ? 'text-amber-300 stroke-[3]' : 'text-slate-700'}`} />
+            <Bold className={`w-4 h-4 ${isBoldActive ? 'text-amber-300 stroke-[3]' : 'text-white'}`} />
             <span>
               {language === 'ta'
                 ? (isBoldActive ? '✓ தடித்த எழுத்து இயக்கத்தில் உள்ளது (Bold ON)' : 'எழுத்தை தடிமனாக்கு (Make Text Bold)')
@@ -513,9 +516,9 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
           <button
             id="btn-save-settings"
             type="submit"
-            className="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-extrabold text-sm sm:text-base rounded-2xl shadow-lg shadow-emerald-700/25 flex items-center justify-center gap-2 transition-all active:scale-98"
+            className="w-full py-3.5 px-4 bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white font-black text-sm sm:text-base rounded-2xl shadow-lg shadow-emerald-700/25 flex items-center justify-center gap-2 transition-all active:scale-98"
           >
-            <Save className="w-5 h-5" />
+            <Save className="w-5 h-5 text-white" />
             <span>{t.save}</span>
           </button>
         </div>
@@ -532,11 +535,11 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
           </div>
           <button
             type="button"
-            onClick={handleResetDefaultHotels}
+            onClick={() => setResetHotelsConfirm(true)}
             title="Reset to 14 standard hotels"
-            className="text-[11px] font-bold text-emerald-700 hover:text-emerald-900 flex items-center gap-1 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200"
+            className="text-[11px] font-black text-white flex items-center gap-1.5 bg-slate-700 hover:bg-slate-800 active:bg-slate-900 px-2.5 py-1 rounded-xl shadow-xs transition-colors"
           >
-            <RotateCcw className="w-3 h-3" />
+            <RotateCcw className="w-3 h-3 text-white" />
             <span>{t.resetHotels}</span>
           </button>
         </div>
@@ -664,11 +667,11 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleDeleteHotelPhone(hotel.id)}
+                      onClick={() => setPhoneToDelete(hotel)}
                       title={language === 'ta' ? `தொலைபேசி எண்ணை நீக்கு (${displayName})` : `Delete Phone Number for ${displayName}`}
-                      className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 border border-rose-200 rounded-xl text-xs font-bold flex items-center justify-center transition-colors active:scale-95 flex-shrink-0"
+                      className="p-2 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white rounded-xl text-xs font-black flex items-center justify-center transition-colors active:scale-95 flex-shrink-0 shadow-xs"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="w-3.5 h-3.5 text-white" />
                     </button>
                   </div>
                 </div>
@@ -699,15 +702,15 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
         </div>
 
         {/* Action Buttons for Phone File Storage */}
-        <div className="space-y-2 pt-1">
+        <div className="space-y-2.5 pt-1">
           {/* Export JSON Backup File */}
           <button
             id="btn-save-phone-backup-file"
             type="button"
             onClick={handleExportBackup}
-            className="w-full py-2.5 px-3 bg-emerald-100/70 hover:bg-emerald-200/80 border border-emerald-300 text-emerald-900 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-colors active:scale-98"
+            className="w-full py-3 px-3 bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all active:scale-98 shadow-md shadow-emerald-700/20"
           >
-            <Download className="w-4 h-4 text-emerald-700" />
+            <Download className="w-4 h-4 text-white" />
             <span>{t.exportJson}</span>
           </button>
 
@@ -716,9 +719,9 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
             id="btn-save-phone-csv-file"
             type="button"
             onClick={handleExportCSV}
-            className="w-full py-2.5 px-3 bg-emerald-100/70 hover:bg-emerald-200/80 border border-emerald-300 text-emerald-900 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-colors active:scale-98"
+            className="w-full py-3 px-3 bg-emerald-800 hover:bg-emerald-900 active:bg-emerald-950 text-white rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all active:scale-98 shadow-md shadow-emerald-800/20"
           >
-            <FileSpreadsheet className="w-4 h-4 text-emerald-700" />
+            <FileSpreadsheet className="w-4 h-4 text-white" />
             <span>{t.exportCsv}</span>
           </button>
 
@@ -736,14 +739,55 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               id="btn-restore-phone-file"
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="w-full py-2.5 px-3 bg-white hover:bg-emerald-50 border-2 border-dashed border-emerald-300 text-emerald-800 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-colors active:scale-98"
+              className="w-full py-3 px-3 bg-slate-800 hover:bg-slate-900 active:bg-slate-950 text-white rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all active:scale-98 shadow-md shadow-slate-800/20"
             >
-              <Upload className="w-4 h-4 text-emerald-700" />
+              <Upload className="w-4 h-4 text-white" />
               <span>{t.restoreJson}</span>
             </button>
           </div>
         </div>
       </div>
+
+      {/* Delete Phone Confirmation Modal */}
+      <ConfirmDeleteModal
+        isOpen={!!phoneToDelete}
+        title={language === 'ta' ? 'தொலைபேசி எண்ணை நீக்க வேண்டுமா?' : 'Delete phone number?'}
+        message={
+          language === 'ta'
+            ? `"${phoneToDelete ? getHotelName(phoneToDelete, language) : ''}" ஹோட்டலின் சேமிக்கப்பட்ட வாட்ஸ்அப் தொலைபேசி எண்ணை நீக்க வேண்டுமா?`
+            : `Do you want to remove the saved phone number for "${phoneToDelete ? getHotelName(phoneToDelete, language) : ''}"?`
+        }
+        itemDetails={phoneToDelete?.phone ? `Phone: ${phoneToDelete.phone}` : undefined}
+        confirmLabel={language === 'ta' ? 'ஆம், நீக்கு' : 'Yes, Delete'}
+        cancelLabel={language === 'ta' ? 'ரத்து' : 'Cancel'}
+        language={language}
+        onConfirm={() => {
+          if (phoneToDelete) {
+            handleDeleteHotelPhone(phoneToDelete.id);
+            setPhoneToDelete(null);
+          }
+        }}
+        onCancel={() => setPhoneToDelete(null)}
+      />
+
+      {/* Reset Standard Hotels Confirmation Modal */}
+      <ConfirmDeleteModal
+        isOpen={resetHotelsConfirm}
+        title={language === 'ta' ? 'ஹோட்டல்களை மீட்டமைக்க வேண்டுமா?' : 'Reset standard hotels?'}
+        message={
+          language === 'ta'
+            ? 'அனைத்து ஹோட்டல்களையும் 14 நிலையான ஹோட்டல்களாக மீட்டமைக்க விரும்புகிறீர்களா?'
+            : 'Are you sure you want to reset the hotel list to the 14 standard hotels?'
+        }
+        confirmLabel={language === 'ta' ? 'ஆம், மீட்டமை' : 'Yes, Reset'}
+        cancelLabel={language === 'ta' ? 'ரத்து' : 'Cancel'}
+        language={language}
+        onConfirm={() => {
+          handleResetDefaultHotels();
+          setResetHotelsConfirm(false);
+        }}
+        onCancel={() => setResetHotelsConfirm(false)}
+      />
     </div>
   );
 };

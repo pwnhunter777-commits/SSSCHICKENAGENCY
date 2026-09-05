@@ -3,6 +3,7 @@ import { Check, Plus, Trash2, Tag, AlertCircle } from 'lucide-react';
 import { DailyPriceRecord, getProductName, LanguageCode, ProductItem } from '../types';
 import { getTodayDateString } from '../utils/storage';
 import { TRANSLATIONS } from '../utils/translations';
+import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 
 interface DailyPricePageProps {
   products: ProductItem[];
@@ -36,6 +37,9 @@ export const DailyPricePage: React.FC<DailyPricePageProps> = ({
     });
     return initial;
   });
+
+  // State for delete product confirmation
+  const [productToDelete, setProductToDelete] = useState<ProductItem | null>(null);
 
   // Modal state for Add Product (asking both English and Tamil names)
   const [showAddModal, setShowAddModal] = useState(false);
@@ -114,7 +118,7 @@ export const DailyPricePage: React.FC<DailyPricePageProps> = ({
               <button
                 type="button"
                 onClick={onNavigateToBilling}
-                className="mt-2 text-xs font-bold text-emerald-800 bg-white border border-emerald-400 hover:bg-emerald-100/50 px-3 py-1 rounded-xl shadow-xs inline-flex items-center gap-1.5 transition-colors"
+                className="mt-2 text-xs font-black text-white bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 px-3.5 py-1.5 rounded-xl shadow-xs inline-flex items-center gap-1.5 transition-all active:scale-95"
               >
                 <span>{t.goToBilling}</span> →
               </button>
@@ -141,7 +145,7 @@ export const DailyPricePage: React.FC<DailyPricePageProps> = ({
 
       {/* Success Notification Feedback */}
       {feedback && (
-        <div className="mb-4 bg-emerald-600 text-white p-3 rounded-2xl text-xs font-bold flex items-center gap-2 shadow-md animate-in fade-in slide-in-from-top-2">
+        <div className="mb-4 bg-emerald-600 text-white p-3 rounded-2xl text-xs font-bold flex items-center gap-2 shadow-md animate-in fade-in slide-from-top-2">
           <Check className="w-4 h-4 flex-shrink-0" />
           <span>{feedback}</span>
         </div>
@@ -158,7 +162,7 @@ export const DailyPricePage: React.FC<DailyPricePageProps> = ({
           id="btn-open-add-product"
           type="button"
           onClick={() => setShowAddModal(true)}
-          className="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold px-3 py-1.5 rounded-2xl flex items-center gap-1.5 shadow-sm transition-all"
+          className="bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 active:scale-95 text-white text-xs font-black px-3.5 py-1.5 rounded-2xl flex items-center gap-1.5 shadow-md shadow-emerald-700/20 transition-all"
         >
           <Plus className="w-4 h-4" />
           <span>{t.addProduct}</span>
@@ -176,19 +180,19 @@ export const DailyPricePage: React.FC<DailyPricePageProps> = ({
             <div
               key={product.id}
               id={`product-card-${product.id}`}
-              className="bg-white border border-emerald-200 hover:border-emerald-400 rounded-2xl px-3 py-2.5 shadow-2xs transition-all flex items-center justify-between gap-2.5"
+              className="bg-white border-2 border-emerald-100 hover:border-emerald-300 rounded-2xl px-3.5 py-3 shadow-2xs transition-all flex items-center justify-between gap-2.5"
             >
               {/* Product Info */}
-              <div className="flex items-center gap-2 min-w-0 flex-1">
-                <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black flex items-center justify-center flex-shrink-0">
+              <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                <span className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-800 text-xs font-black flex items-center justify-center flex-shrink-0">
                   {index + 1}
                 </span>
                 <div className="min-w-0">
-                  <h4 className="text-xs sm:text-sm font-bold text-emerald-950 truncate">
+                  <h4 className="text-xs sm:text-sm font-black text-emerald-950 truncate uppercase tracking-tight">
                     {displayName}
                   </h4>
                   {secondaryName && secondaryName !== displayName && (
-                    <span className="text-[10px] text-gray-400 font-medium block truncate">
+                    <span className="text-[10px] text-emerald-800/70 font-bold block truncate">
                       {secondaryName}
                     </span>
                   )}
@@ -198,7 +202,7 @@ export const DailyPricePage: React.FC<DailyPricePageProps> = ({
               {/* Price Input & Delete Button */}
               <div className="flex items-center gap-1.5 flex-shrink-0">
                 <div className="relative flex items-center">
-                  <span className="absolute left-2 text-xs font-bold text-emerald-700 pointer-events-none">₹</span>
+                  <span className="absolute left-2.5 text-xs font-black text-emerald-700 pointer-events-none">₹</span>
                   <input
                     id={`price-input-${product.id}`}
                     type="text"
@@ -206,18 +210,18 @@ export const DailyPricePage: React.FC<DailyPricePageProps> = ({
                     value={currentPrice}
                     onChange={(e) => handlePriceChange(product.id, e.target.value)}
                     placeholder="0"
-                    className="w-20 sm:w-24 pl-5 pr-2 py-1.5 bg-emerald-50/50 hover:bg-white focus:bg-white border border-emerald-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-500/20 rounded-xl text-right text-xs sm:text-sm font-bold text-gray-900 outline-none transition-all shadow-inner"
+                    className="w-20 sm:w-24 pl-6 pr-2.5 py-1.5 bg-white border-2 border-emerald-200 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 rounded-xl text-right text-xs sm:text-sm font-black text-emerald-950 outline-none transition-all shadow-2xs placeholder:text-emerald-300"
                   />
                 </div>
 
                 <button
                   id={`delete-product-${product.id}`}
                   type="button"
-                  onClick={() => onDeleteProduct(product.id)}
+                  onClick={() => setProductToDelete(product)}
                   title={t.deleteProduct}
-                  className="w-8 h-8 rounded-xl bg-gray-100 hover:bg-red-50 text-gray-400 hover:text-red-600 border border-gray-200 hover:border-red-200 flex items-center justify-center transition-colors active:scale-95"
+                  className="w-8 h-8 rounded-xl bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white shadow-xs flex items-center justify-center transition-all active:scale-95"
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
+                  <Trash2 className="w-3.5 h-3.5 text-white" />
                 </button>
               </div>
             </div>
@@ -231,7 +235,7 @@ export const DailyPricePage: React.FC<DailyPricePageProps> = ({
           id="btn-save-daily-prices"
           type="button"
           onClick={handleSavePrices}
-          className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-extrabold text-sm sm:text-base rounded-2xl shadow-lg shadow-emerald-700/25 flex items-center justify-center gap-2 transition-all active:scale-98"
+          className="w-full py-3 px-4 bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white font-black text-sm sm:text-base rounded-2xl shadow-lg shadow-emerald-700/25 flex items-center justify-center gap-2 transition-all active:scale-98"
         >
           <Check className="w-5 h-5" />
           <span>{t.savePrice}</span>
@@ -311,14 +315,14 @@ export const DailyPricePage: React.FC<DailyPricePageProps> = ({
                     setShowAddModal(false);
                     setAddError('');
                   }}
-                  className="py-2.5 px-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-xs transition-colors"
+                  className="py-2.5 px-3 bg-slate-700 hover:bg-slate-800 active:bg-slate-900 text-white rounded-xl font-black text-xs shadow-xs transition-all active:scale-95"
                 >
                   {t.cancel}
                 </button>
                 <button
                   id="btn-confirm-add-product"
                   type="submit"
-                  className="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-md transition-colors"
+                  className="py-2.5 px-3 bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white rounded-xl font-black text-xs shadow-md shadow-emerald-700/25 transition-all active:scale-95"
                 >
                   {t.save}
                 </button>
@@ -327,6 +331,31 @@ export const DailyPricePage: React.FC<DailyPricePageProps> = ({
           </div>
         </div>
       )}
+      {/* Delete Product Confirmation Modal */}
+      <ConfirmDeleteModal
+        isOpen={!!productToDelete}
+        title={language === 'ta' ? 'பொருளை நீக்க வேண்டுமா?' : 'Delete product?'}
+        message={
+          language === 'ta'
+            ? `"${productToDelete ? getProductName(productToDelete, language) : ''}" பொருளை முழுமையாக நீக்க விரும்புகிறீர்களா? இது தினசரி விலைப் பட்டியல் மற்றும் பில்லிங் பட்டியலிலிருந்து நீக்கப்படும்.`
+            : `Are you sure you want to delete "${productToDelete ? getProductName(productToDelete, language) : ''}"? This will remove it from daily pricing and billing.`
+        }
+        itemDetails={
+          productToDelete
+            ? `${getProductName(productToDelete, language)} — ₹${priceMap[productToDelete.id] || productToDelete.pricePerKg || '0'}/KG`
+            : undefined
+        }
+        confirmLabel={language === 'ta' ? 'ஆம், நீக்கு' : 'Yes, Delete'}
+        cancelLabel={language === 'ta' ? 'ரத்து' : 'Cancel'}
+        language={language}
+        onConfirm={() => {
+          if (productToDelete) {
+            onDeleteProduct(productToDelete.id);
+            setProductToDelete(null);
+          }
+        }}
+        onCancel={() => setProductToDelete(null)}
+      />
     </div>
   );
 };

@@ -8,13 +8,10 @@ import {
   ShoppingBag,
   X,
   ChevronDown,
-  ChevronUp,
-  Percent,
-  Tag,
-  RotateCcw,
   IndianRupee,
   ArrowRight,
   Trash2,
+  Send,
 } from 'lucide-react';
 import {
   Bill,
@@ -30,6 +27,7 @@ import {
 } from '../types';
 import { getNextBillNumber, getTodayDateString } from '../utils/storage';
 import { TRANSLATIONS } from '../utils/translations';
+import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 
 interface BillingPageProps {
   products: ProductItem[];
@@ -40,10 +38,12 @@ interface BillingPageProps {
   settings: ShopSettings;
   language: LanguageCode;
   onSaveBill: (bill: Bill) => void;
-  onOpenReceipt: (bill: Bill, isDraft?: boolean) => void;
+  onOpenReceipt: (bill: Bill, isDraft?: boolean, onSaved?: () => void) => void;
   onNavigateToDailyPrice: () => void;
   onNavigateToHotel?: () => void;
   onAddHotel?: (nameEn: string, nameTa: string) => void;
+  onAddProduct?: (nameEn: string, nameTa: string, price: number) => void;
+  onDeleteProduct?: (productId: string) => void;
 }
 
 interface ProductBillingState {
@@ -67,6 +67,8 @@ export const BillingPage: React.FC<BillingPageProps> = ({
   onNavigateToDailyPrice,
   onNavigateToHotel,
   onAddHotel,
+  onAddProduct,
+  onDeleteProduct,
 }) => {
   const t = TRANSLATIONS[language] || TRANSLATIONS.en;
   const todayStr = getTodayDateString();
@@ -80,10 +82,21 @@ export const BillingPage: React.FC<BillingPageProps> = ({
   const [newHotelNameTa, setNewHotelNameTa] = useState<string>('');
   const [addNotification, setAddNotification] = useState<string | null>(null);
 
-  // Billing items input state: map of productId -> { kgInput, priceInput }
+  // Add Product State in Billing Selection
+  const [isAddingProduct, setIsAddingProduct] = useState<boolean>(false);
+  const [newProductNameEn, setNewProductNameEn] = useState<string>('');
+  const [newProductNameTa, setNewProductNameTa] = useState<string>('');
+  const [newProductPrice, setNewProductPrice] = useState<string>('');
+  const [productAddNotification, setProductAddNotification] = useState<string | null>(null);
+
+  // Billing items input state: map of productId -> { kgInput, priceInput, rateInput }
   const [billingInputs, setBillingInputs] = useState<Record<string, ProductBillingState>>({});
 
-  // Base rate before discount
+  // Delete item and clear confirmation states
+  const [itemToDelete, setItemToDelete] = useState<ProductItem | null>(null);
+  const [showClearAllConfirm, setShowClearAllConfirm] = useState<boolean>(false);
+
+  // Base rate from daily prices or product default
   const getBaseProductRate = (product: ProductItem): number => {
     if (dailyPrices && dailyPrices.prices[product.id] !== undefined) {
       return dailyPrices.prices[product.id];
@@ -91,14 +104,11 @@ export const BillingPage: React.FC<BillingPageProps> = ({
     return product.pricePerKg || 0;
   };
 
-  // Active rate after per-product reduction
   const getProductRate = (product: ProductItem): number => {
-    const base = getBaseProductRate(product);
-    const reduction = productReductions[product.id] || 0;
-    return Math.max(0, base - reduction);
+    return getBaseProductRate(product);
   };
 
-  // Helper to determine effective KG price (custom edited or daily price - reduction)
+  // Helper to determine effective KG price (custom edited or daily price)
   const getActiveRate = (productId: string): number => {
     const existing = billingInputs[productId];
     if (existing?.rateInput !== undefined && existing.rateInput !== '' && !isNaN(parseFloat(existing.rateInput))) {
@@ -193,122 +203,6 @@ export const BillingPage: React.FC<BillingPageProps> = ({
     });
   };
 
-  // Toggle a single product in the multi-select reduction list
-  const handleToggleReduceProduct = (prodId: string) => {
-    setSelectedReduceProductIds((prev) =>
-      prev.includes(prodId) ? prev.filter((id) => id !== prodId) : [...prev, prodId]
-    );
-  };
-
-  const handleSelectAllReduceProducts = () => {
-    setSelectedReduceProductIds(products.map((p) => p.id));
-  };
-
-  const handleDeselectAllReduceProducts = () => {
-    setSelectedReduceProductIds([]);
-  };
-
-  // Apply price reduction for all selected products
-  const handleApplyReduction = (customAmt?: number) => {
-    if (selectedReduceProductIds.length === 0) {
-      setReduceNotification(language === 'ta' ? 'குறைந்தது ஒரு பொருளைத் தேர்ந்தெடுக்கவும்.' : 'Please select at least one product.');
-      setTimeout(() => setReduceNotification(null), 2500);
-      return;
-    }
-
-    const amt = customAmt !== undefined ? customAmt : Math.abs(parseFloat(reduceAmountInput) || 5);
-    const newReductions = { ...productReductions };
-
-    selectedReduceProductIds.forEach((prodId) => {
-      newReductions[prodId] = amt;
-    });
-
-    setProductReductions(newReductions);
-
-    // Recalculate price if KG is already entered for these products
-    setBillingInputs((prev) => {
-      const updated = { ...prev };
-      selectedReduceProductIds.forEach((prodId) => {
-        const prod = products.find((p) => p.id === prodId);
-        if (!prod) return;
-        const existing = updated[prodId];
-        if (existing && existing.kgInput && parseFloat(existing.kgInput) > 0) {
-          const kg = parseFloat(existing.kgInput);
-          const baseRate = getBaseProductRate(prod);
-          const newRate = Math.max(0, baseRate - amt);
-          updated[prodId] = {
-            ...existing,
-            priceInput: Math.round(kg * newRate).toString(),
-          };
-        }
-      });
-      return updated;
-    });
-
-    const count = selectedReduceProductIds.length;
-    setReduceNotification(
-      language === 'ta'
-        ? `${count} பொருட்களுக்கு ₹${amt}/கிலோ குறைக்கப்பட்டது!`
-        : `Reduced ₹${amt}/kg for ${count} product${count > 1 ? 's' : ''}!`
-    );
-    setTimeout(() => setReduceNotification(null), 3500);
-  };
-
-  const handleRemoveProductReduction = (prodId: string) => {
-    const prod = products.find((p) => p.id === prodId);
-    setProductReductions((prev) => {
-      const copy = { ...prev };
-      delete copy[prodId];
-      return copy;
-    });
-
-    if (prod) {
-      const normalRate = getBaseProductRate(prod);
-      setBillingInputs((prev) => {
-        const existing = prev[prodId];
-        if (existing && existing.kgInput && parseFloat(existing.kgInput) > 0) {
-          const kg = parseFloat(existing.kgInput);
-          return {
-            ...prev,
-            [prodId]: {
-              ...existing,
-              priceInput: Math.round(kg * normalRate).toString(),
-            },
-          };
-        }
-        return prev;
-      });
-      const pName = getProductName(prod, language);
-      setReduceNotification(
-        language === 'ta'
-          ? `"${pName}" இயல்பு விலை மீட்டமைக்கப்பட்டது (₹${normalRate}/கிலோ)`
-          : `Restored normal price for "${pName}" (₹${normalRate}/kg)`
-      );
-      setTimeout(() => setReduceNotification(null), 3000);
-    }
-  };
-
-  const handleClearAllReductions = () => {
-    setProductReductions({});
-    setBillingInputs((prev) => {
-      const updated = { ...prev };
-      products.forEach((p) => {
-        const existing = updated[p.id];
-        if (existing && existing.kgInput && parseFloat(existing.kgInput) > 0) {
-          const kg = parseFloat(existing.kgInput);
-          const baseRate = getBaseProductRate(p);
-          updated[p.id] = {
-            ...existing,
-            priceInput: Math.round(kg * baseRate).toString(),
-          };
-        }
-      });
-      return updated;
-    });
-    setReduceNotification(language === 'ta' ? 'அனைத்து விலைக் குறைப்புகளும் ரத்து செய்யப்பட்டன.' : 'All price reductions cleared.');
-    setTimeout(() => setReduceNotification(null), 3000);
-  };
-
   // Calculate active bill items
   const activeBillItems: BillItem[] = useMemo(() => {
     const items: BillItem[] = [];
@@ -333,7 +227,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
       }
     });
     return items;
-  }, [billingInputs, products, dailyPrices, productReductions, language]);
+  }, [billingInputs, products, dailyPrices, language]);
 
   const totalKg = useMemo(() => {
     return activeBillItems.reduce((sum, item) => sum + item.kg, 0);
@@ -359,8 +253,9 @@ export const BillingPage: React.FC<BillingPageProps> = ({
       const hotelBills = bills.filter((b) => (b.hotelName || '').trim().toLowerCase() === customName);
       const hotelPayments = payments.filter((p) => (p.hotelName || '').trim().toLowerCase() === customName);
       const billed = hotelBills.reduce((sum, b) => sum + b.totalAmount, 0);
-      const paid = hotelPayments.reduce((sum, p) => sum + p.amount, 0);
-      return billed - paid;
+      const paid = hotelPayments.filter((p) => p.type !== 'balance_add').reduce((sum, p) => sum + p.amount, 0);
+      const balAdded = hotelPayments.filter((p) => p.type === 'balance_add').reduce((sum, p) => sum + p.amount, 0);
+      return (billed + balAdded) - paid;
     }
 
     if (!currentSelectedHotelItem) return 0;
@@ -385,8 +280,9 @@ export const BillingPage: React.FC<BillingPageProps> = ({
     const hotelPayments = payments.filter(isMatchingPayment);
 
     const billed = hotelBills.reduce((sum, b) => sum + b.totalAmount, 0);
-    const paid = hotelPayments.reduce((sum, p) => sum + p.amount, 0);
-    return billed - paid;
+    const paid = hotelPayments.filter((p) => p.type !== 'balance_add').reduce((sum, p) => sum + p.amount, 0);
+    const balAdded = hotelPayments.filter((p) => p.type === 'balance_add').reduce((sum, p) => sum + p.amount, 0);
+    return (billed + balAdded) - paid;
   }, [selectedHotelId, isCustomHotel, customHotelInput, currentSelectedHotelItem, bills, payments]);
 
   // Handle Complete Bill Creation
@@ -413,16 +309,18 @@ export const BillingPage: React.FC<BillingPageProps> = ({
       netTotalWithBalance: prevBal !== 0 ? netTotalWithBal : totalAmount,
     };
 
-    // Reset current form inputs
-    setBillingInputs({});
-
-    // If bluetooth print was requested directly, save immediately
+    // If bluetooth print was requested directly, save and clear immediately
     if (_triggerBluetooth) {
       onSaveBill(newBill);
+      setBillingInputs({});
       onOpenReceipt(newBill, false);
     } else {
-      // Draft mode: the bill is added to Bill History only after clicking Print, WhatsApp, or Save
-      onOpenReceipt(newBill, true);
+      // Draft mode: the bill is NOT saved yet!
+      // Form inputs are preserved.
+      // Bill will only be saved after clicking the Send button (or Print/Save) in the receipt modal.
+      onOpenReceipt(newBill, true, () => {
+        setBillingInputs({});
+      });
     }
   };
 
@@ -461,8 +359,28 @@ export const BillingPage: React.FC<BillingPageProps> = ({
     }
   };
 
-  // Count active reductions
-  const activeReductionsCount = Object.keys(productReductions).length;
+  const handleSaveNewProduct = (e: React.FormEvent) => {
+    e.preventDefault();
+    const enTrimmed = newProductNameEn.trim();
+    const taTrimmed = newProductNameTa.trim();
+    const priceVal = parseFloat(newProductPrice) || 0;
+    if (!enTrimmed && !taTrimmed) return;
+
+    if (onAddProduct) {
+      onAddProduct(enTrimmed, taTrimmed, priceVal);
+    }
+    setNewProductNameEn('');
+    setNewProductNameTa('');
+    setNewProductPrice('');
+    setIsAddingProduct(false);
+    const addedName = language === 'ta' ? (taTrimmed || enTrimmed) : (enTrimmed || taTrimmed);
+    setProductAddNotification(
+      language === 'ta'
+        ? `"${addedName}" பொருள் வெற்றிகரமாக சேர்க்கப்பட்டது!`
+        : `Product "${addedName}" added to billing!`
+    );
+    setTimeout(() => setProductAddNotification(null), 3500);
+  };
 
   return (
     <div id="page-billing" className="pb-28 pt-2 px-4 max-w-md mx-auto">
@@ -475,7 +393,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
           <button
             type="button"
             onClick={onNavigateToDailyPrice}
-            className="text-xs font-bold text-emerald-800 bg-white border border-emerald-300 hover:bg-emerald-50 px-2.5 py-1 rounded-xl shadow-xs"
+            className="text-xs font-black text-white bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 px-3 py-1.5 rounded-xl shadow-xs transition-all active:scale-95"
           >
             {t.dailyPrice}
           </button>
@@ -483,12 +401,14 @@ export const BillingPage: React.FC<BillingPageProps> = ({
       )}
 
       {/* Hotel Selection Section with Dropdown and Add Button */}
-      <div className="bg-white border border-emerald-200 rounded-3xl p-3.5 shadow-xs mb-3 space-y-2.5">
+      <div className="bg-white border-2 border-emerald-300 rounded-3xl p-4 shadow-sm mb-3 space-y-3">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-950 uppercase tracking-wide">
-            <Building2 className="w-4 h-4 text-emerald-700" />
+          <div className="flex items-center gap-2 text-xs font-black text-emerald-950 uppercase tracking-wide">
+            <div className="w-6 h-6 rounded-lg bg-emerald-100 flex items-center justify-center">
+              <Building2 className="w-3.5 h-3.5 text-emerald-800" />
+            </div>
             <span>{t.selectHotel}</span>
-            <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-100/70 px-1.5 py-0.2 rounded-md">
+            <span className="text-[11px] font-black text-white bg-emerald-800 px-2 py-0.5 rounded-lg shadow-2xs">
               {hotels.length}
             </span>
           </div>
@@ -501,7 +421,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
               setNewHotelNameEn('');
               setNewHotelNameTa('');
             }}
-            className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold flex items-center gap-1 transition-all active:scale-95 shadow-xs"
+            className="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white rounded-xl text-xs font-black flex items-center gap-1 transition-all active:scale-95 shadow-md shadow-emerald-700/20"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>+ {t.addHotel}</span>
@@ -559,14 +479,14 @@ export const BillingPage: React.FC<BillingPageProps> = ({
               <button
                 type="button"
                 onClick={() => setIsAddingHotel(false)}
-                className="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-xl text-xs font-bold"
+                className="px-3.5 py-1.5 bg-slate-700 hover:bg-slate-800 active:bg-slate-900 text-white rounded-xl text-xs font-black shadow-xs transition-all active:scale-95"
               >
                 {t.cancel}
               </button>
               <button
                 id="btn-save-new-hotel-billing"
                 type="submit"
-                className="px-4 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold whitespace-nowrap shadow-xs active:scale-95"
+                className="px-4 py-1.5 bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white rounded-xl text-xs font-black whitespace-nowrap shadow-md shadow-emerald-700/25 transition-all active:scale-95"
               >
                 {t.save}
               </button>
@@ -580,7 +500,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
             id="hotel-dropdown-select"
             value={isCustomHotel ? '__custom__' : selectedHotelId}
             onChange={handleDropdownChange}
-            className="w-full h-12 px-3.5 pr-9 bg-emerald-50/60 hover:bg-emerald-50/90 border-2 border-emerald-300 focus:border-emerald-600 focus:bg-white rounded-2xl text-xs sm:text-sm font-bold text-emerald-950 outline-none appearance-none transition-colors cursor-pointer"
+            className="w-full h-12 px-3.5 pr-9 bg-emerald-50/80 hover:bg-emerald-100/70 border-2 border-emerald-500 focus:border-emerald-700 focus:bg-white rounded-2xl text-xs sm:text-sm font-black text-emerald-950 outline-none appearance-none transition-colors cursor-pointer shadow-xs"
           >
             <optgroup label={t.selectHotel}>
               {hotels.map((hotel) => (
@@ -596,8 +516,8 @@ export const BillingPage: React.FC<BillingPageProps> = ({
             </optgroup>
           </select>
           {/* Custom chevron */}
-          <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-emerald-700">
-            <ChevronDown className="w-5 h-5" />
+          <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-emerald-800">
+            <ChevronDown className="w-5 h-5 stroke-[2.5]" />
           </div>
         </div>
 
@@ -700,7 +620,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
                 id="btn-billing-goto-hotel-ledger"
                 type="button"
                 onClick={onNavigateToHotel}
-                className="text-[11px] font-bold text-emerald-800 bg-white hover:bg-emerald-100/90 border border-emerald-300 px-2.5 py-1.5 rounded-xl shadow-2xs flex items-center gap-1 transition-all active:scale-95"
+                className="text-[11px] font-black text-white bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 px-3 py-1.5 rounded-xl shadow-xs flex items-center gap-1 transition-all active:scale-95"
                 title={language === 'ta' ? 'ஹோட்டல் கணக்கை காண்க' : 'View Hotel Ledger'}
               >
                 <span>{language === 'ta' ? 'கணக்கு' : 'Ledger'}</span>
@@ -711,261 +631,121 @@ export const BillingPage: React.FC<BillingPageProps> = ({
         </div>
       </div>
 
-      {/* ======================================================== */}
-      {/* PRICE REDUCE CONTAINER (AS REQUESTED) */}
-      {/* ======================================================== */}
-      <div id="price-reduce-container" className="mb-3.5">
-        {/* Main Green Bar matching requested UI */}
-        <div
-          onClick={() => setIsReduceOpen((prev) => !prev)}
-          className="bg-[#00a859] hover:bg-[#00964f] text-white rounded-2xl p-2.5 px-3.5 flex items-center justify-between shadow-md cursor-pointer transition-all active:scale-[0.99] select-none"
-        >
-          {/* Left Text */}
-          <div className="flex items-center gap-2">
-            <Tag className="w-4 h-4 text-emerald-100" />
-            <span className="text-sm sm:text-base font-extrabold tracking-wide">
-              {t.priceReduce}
-            </span>
-            {activeReductionsCount > 0 && (
-              <span className="text-[10px] font-extrabold bg-white text-[#00a859] px-2 py-0.5 rounded-full shadow-2xs">
-                {activeReductionsCount} {language === 'ta' ? 'குறைப்பு' : 'Active'}
-              </span>
-            )}
-          </div>
-
-          {/* Center: -5 / Discount Pill Input Box */}
-          <div
-            className="flex items-center justify-center bg-white text-gray-950 font-black text-sm sm:text-base px-3 py-1 rounded-xl shadow-inner min-w-[60px]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <span>-</span>
-            <input
-              type="text"
-              inputMode="numeric"
-              value={reduceAmountInput}
-              onChange={(e) => {
-                const val = e.target.value.replace(/[^0-9]/g, '');
-                setReduceAmountInput(val);
-              }}
-              className="w-8 text-center font-black bg-transparent outline-none text-gray-950"
-              placeholder="5"
-            />
-          </div>
-
-          {/* Right: Triangle Chevron */}
-          <div className="flex items-center gap-1 text-black bg-white/90 p-1.5 rounded-lg shadow-2xs">
-            {isReduceOpen ? (
-              <ChevronUp className="w-4 h-4 stroke-[3]" />
-            ) : (
-              <ChevronDown className="w-4 h-4 stroke-[3]" />
-            )}
-          </div>
-        </div>
-
-        {/* Notification when price reduced */}
-        {reduceNotification && (
-          <div className="mt-2 bg-emerald-600 text-white p-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs animate-in fade-in">
-            <Check className="w-4 h-4 flex-shrink-0" />
-            <span>{reduceNotification}</span>
-          </div>
-        )}
-
-        {/* Expanded Dropdown Drawer for Multi-Product Selection */}
-        {isReduceOpen && (
-          <div className="mt-2 bg-white border-2 border-emerald-300 rounded-3xl p-3.5 shadow-md space-y-3 animate-in fade-in slide-in-from-top-2">
-            {/* Header & Select All / Deselect Controls */}
-            <div className="flex items-center justify-between pb-2 border-b border-emerald-100 flex-wrap gap-2">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-950">
-                <Percent className="w-4 h-4 text-emerald-700" />
-                <span>{t.selectProducts} ({selectedReduceProductIds.length}/{products.length})</span>
-              </div>
-
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={handleSelectAllReduceProducts}
-                  className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200"
-                >
-                  {t.selectAll}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDeselectAllReduceProducts}
-                  className="text-[11px] font-bold text-gray-600 hover:text-gray-800 bg-gray-100 px-2 py-0.5 rounded-lg"
-                >
-                  {t.clear}
-                </button>
-                {activeReductionsCount > 0 && (
-                  <button
-                    type="button"
-                    onClick={handleClearAllReductions}
-                    className="text-[11px] font-bold text-red-600 hover:text-red-700 flex items-center gap-1 bg-red-50 px-2 py-0.5 rounded-lg border border-red-200"
-                  >
-                    <RotateCcw className="w-3 h-3" />
-                    <span>{t.reset}</span>
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Quick Reduction Amount Selector */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-              <span className="text-[11px] font-bold text-gray-500 whitespace-nowrap">{t.amount}:</span>
-              {[2, 3, 5, 10, 15, 20].map((amt) => {
-                const isSelected = reduceAmountInput === amt.toString();
-                return (
-                  <button
-                    key={amt}
-                    type="button"
-                    onClick={() => {
-                      setReduceAmountInput(amt.toString());
-                      handleApplyReduction(amt);
-                    }}
-                    className={`px-2.5 py-1 rounded-xl text-xs font-black transition-all ${
-                      isSelected
-                        ? 'bg-[#00a859] text-white shadow-xs scale-105'
-                        : 'bg-emerald-50 text-emerald-900 hover:bg-emerald-100 border border-emerald-200'
-                    }`}
-                  >
-                    -₹{amt}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Multi-Select Checkbox List of All Chicken Products */}
-            <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
-              {products.map((product) => {
-                const baseRate = getBaseProductRate(product);
-                const currentReduction = productReductions[product.id] || 0;
-                const effectiveRate = Math.max(0, baseRate - currentReduction);
-                const isChecked = selectedReduceProductIds.includes(product.id);
-                const hasActiveDiscount = currentReduction > 0;
-                const prodDisplayName = getProductName(product, language);
-
-                const targetDiscountVal = parseFloat(reduceAmountInput) || 5;
-                const previewRate = Math.max(0, baseRate - targetDiscountVal);
-
-                return (
-                  <label
-                    key={product.id}
-                    className={`flex items-center justify-between p-2.5 rounded-2xl border transition-all cursor-pointer select-none ${
-                      isChecked
-                        ? 'bg-emerald-50 border-emerald-500 ring-1 ring-emerald-500/20'
-                        : hasActiveDiscount
-                        ? 'bg-emerald-50/40 border-emerald-300'
-                        : 'bg-gray-50/70 border-gray-200 hover:bg-emerald-50/30'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      {/* Multi-select Checkbox */}
-                      <input
-                        type="checkbox"
-                        checked={isChecked}
-                        onChange={() => handleToggleReduceProduct(product.id)}
-                        className="w-4 h-4 text-emerald-600 rounded border-gray-300 focus:ring-emerald-500 cursor-pointer accent-[#00a859]"
-                      />
-                      <div className="truncate">
-                        <span className="text-xs sm:text-sm font-bold text-gray-900 block truncate">
-                          {prodDisplayName}
-                        </span>
-                        <span className="text-[11px] text-gray-500">
-                          {language === 'ta' ? 'வழக்கமான விலை' : 'Regular'}: ₹{baseRate}/kg
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Price Status & Action */}
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      {hasActiveDiscount ? (
-                        <div className="text-right">
-                          <span className="text-xs font-black text-[#00a859] block">
-                            ₹{effectiveRate}/kg
-                          </span>
-                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded">
-                            -₹{currentReduction} off
-                          </span>
-                        </div>
-                      ) : (
-                        <div className="text-right">
-                          <span className="text-xs font-bold text-gray-700 block">
-                            ₹{baseRate}/kg
-                          </span>
-                          {isChecked && (
-                            <span className="text-[10px] font-bold text-emerald-600">
-                              → ₹{previewRate} (-₹{targetDiscountVal})
-                            </span>
-                          )}
-                        </div>
-                      )}
-
-                      {hasActiveDiscount && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            handleRemoveProductReduction(product.id);
-                          }}
-                          className="text-gray-400 hover:text-red-500 p-1"
-                          title="Remove discount"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  </label>
-                );
-              })}
-            </div>
-
-            {/* Apply Reduction Button to All Selected Products */}
-            <div className="pt-1">
-              <button
-                id="btn-apply-price-reduction"
-                type="button"
-                onClick={() => handleApplyReduction()}
-                disabled={selectedReduceProductIds.length === 0}
-                className="w-full py-2.5 px-3 bg-[#00a859] hover:bg-[#00964f] active:bg-emerald-800 disabled:opacity-50 text-white font-extrabold text-xs sm:text-sm rounded-2xl shadow-sm flex items-center justify-center gap-1.5 transition-all active:scale-98"
-              >
-                <Check className="w-4 h-4" />
-                <span>
-                  {language === 'ta'
-                    ? `தேர்ந்தெடுக்கப்பட்ட ${selectedReduceProductIds.length} பொருட்களுக்கு -₹${reduceAmountInput || '5'} குறைக்கவும்`
-                    : `Apply -₹${reduceAmountInput || '5'} to ${selectedReduceProductIds.length} Selected Product${selectedReduceProductIds.length === 1 ? '' : 's'}`}
-                </span>
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
       {/* Products Section Header */}
-      <div className="flex items-center justify-between mb-2 px-1">
+      <div className="flex items-center justify-between mb-2 px-1 gap-2 flex-wrap">
         <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-950 uppercase tracking-wide">
           <ShoppingBag className="w-4 h-4 text-emerald-700" />
           <span>{t.chickenProducts} ({products.length})</span>
         </div>
 
-        {activeBillItems.length > 0 && (
-          <button
-            type="button"
-            onClick={handleClearAll}
-            className="text-[11px] font-bold text-gray-500 hover:text-red-600 flex items-center gap-1 transition-colors"
-          >
-            <RefreshCw className="w-3 h-3" />
-            <span>{t.resetAll}</span>
-          </button>
-        )}
+        <div className="flex items-center gap-1.5">
+          {onAddProduct && (
+            <button
+              id="btn-add-product-billing"
+              type="button"
+              onClick={() => {
+                setIsAddingProduct((prev) => !prev);
+                setNewProductNameEn('');
+                setNewProductNameTa('');
+                setNewProductPrice('');
+              }}
+              className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white rounded-xl text-xs font-black flex items-center gap-1 transition-all active:scale-95 shadow-xs"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>+ {language === 'ta' ? 'பொருள் சேர்க்க' : 'Add Item'}</span>
+            </button>
+          )}
+
+          {activeBillItems.length > 0 && (
+            <button
+              id="btn-clear-all-billing"
+              type="button"
+              onClick={() => setShowClearAllConfirm(true)}
+              className="text-[11px] font-black text-white bg-rose-600 hover:bg-rose-700 active:bg-rose-800 flex items-center gap-1 px-2.5 py-1.5 rounded-xl shadow-xs transition-all active:scale-95"
+            >
+              <RefreshCw className="w-3 h-3 text-white" />
+              <span>{t.resetAll}</span>
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* Notification when product added */}
+      {productAddNotification && (
+        <div className="mb-2.5 bg-emerald-600 text-white p-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs animate-in fade-in">
+          <Check className="w-4 h-4 flex-shrink-0" />
+          <span>{productAddNotification}</span>
+        </div>
+      )}
+
+      {/* Inline Add Product / Thing Form */}
+      {isAddingProduct && (
+        <form
+          onSubmit={handleSaveNewProduct}
+          className="mb-3 bg-emerald-50/95 border border-emerald-300 rounded-2xl p-3 space-y-2.5 animate-in fade-in slide-in-from-top-1"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-emerald-950 uppercase tracking-wider">
+              {language === 'ta' ? 'புதிய பொருள் சேர்க்க' : 'Add New Item / Product'}
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsAddingProduct(false)}
+              className="text-gray-400 hover:text-gray-700 p-0.5"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <div className="space-y-2">
+            <input
+              type="text"
+              value={newProductNameEn}
+              onChange={(e) => setNewProductNameEn(e.target.value)}
+              placeholder="Item name in English (e.g. Tandoori Chicken)"
+              className="w-full px-3 py-2 bg-white border border-emerald-200 rounded-xl text-xs font-bold text-gray-900 outline-none focus:border-emerald-600"
+            />
+            <input
+              type="text"
+              value={newProductNameTa}
+              onChange={(e) => setNewProductNameTa(e.target.value)}
+              placeholder="பொருளின் பெயர் தமிழில் (எ.கா. தந்தூரி சிக்கன்)"
+              className="w-full px-3 py-2 bg-white border border-emerald-200 rounded-xl text-xs font-bold text-gray-900 outline-none focus:border-emerald-600"
+            />
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-500">₹</span>
+              <input
+                type="number"
+                value={newProductPrice}
+                onChange={(e) => setNewProductPrice(e.target.value)}
+                placeholder={language === 'ta' ? 'கிலோ விலை (₹)' : 'Price per KG (₹)'}
+                className="w-full pl-7 pr-3 py-2 bg-white border border-emerald-200 rounded-xl text-xs font-bold text-gray-900 outline-none focus:border-emerald-600"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => setIsAddingProduct(false)}
+              className="px-3.5 py-1.5 text-xs font-black text-white bg-slate-700 hover:bg-slate-800 active:bg-slate-900 rounded-xl shadow-xs transition-all active:scale-95"
+            >
+              {language === 'ta' ? 'ரத்து' : 'Cancel'}
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-1.5 text-xs font-black text-white bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 rounded-xl shadow-md shadow-emerald-700/20 transition-all active:scale-95"
+            >
+              {language === 'ta' ? 'சேர்க்க' : 'Add Item'}
+            </button>
+          </div>
+        </form>
+      )}
 
       {/* Chicken Products List */}
       <div className="space-y-2">
         {products.map((product) => {
-          const baseRate = getBaseProductRate(product);
-          const currentReduction = productReductions[product.id] || 0;
           const defaultRate = getProductRate(product);
-          const hasDiscount = currentReduction > 0;
           const prodDisplayName = getProductName(product, language);
 
           const currentKg = billingInputs[product.id]?.kgInput || '';
@@ -978,120 +758,118 @@ export const BillingPage: React.FC<BillingPageProps> = ({
             <div
               key={product.id}
               id={`billing-card-${product.id}`}
-              className={`bg-white rounded-2xl p-3 sm:p-3.5 transition-all border-2 flex flex-col gap-2 ${
+              className={`rounded-2xl p-3 transition-all border-2 flex flex-col gap-2 ${
                 isItemActive
-                  ? 'border-emerald-600 shadow-md ring-2 ring-emerald-500/20 bg-emerald-50/15'
-                  : 'border-gray-800 shadow-2xs hover:border-emerald-700'
+                  ? 'bg-gradient-to-br from-emerald-50/90 via-white to-emerald-50/50 border-emerald-600 shadow-md ring-2 ring-emerald-500/25'
+                  : 'bg-white border-emerald-200/90 hover:border-emerald-400/80 shadow-xs'
               }`}
             >
               {/* TOP ROW: PRODUCT NAME (LEFT) & DELETE BUTTON (RIGHT) */}
-              <div className="flex items-center justify-between gap-2">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h4 className="text-sm sm:text-base font-black text-gray-900 truncate uppercase tracking-tight">
+              <div className="flex items-center justify-between gap-1.5">
+                <div className="min-w-0 flex-1 flex items-center gap-2">
+                  <span
+                    className={`w-2.5 h-2.5 rounded-full flex-shrink-0 transition-colors ${
+                      isItemActive ? 'bg-emerald-600 ring-2 ring-emerald-300' : 'bg-emerald-300'
+                    }`}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <h4 className="text-xs sm:text-sm font-black text-emerald-950 truncate uppercase tracking-tight leading-tight">
                       {prodDisplayName}
                     </h4>
-                    {hasDiscount && (
-                      <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded-md border border-emerald-300">
-                        -₹{currentReduction} off
-                      </span>
+                    {/* Secondary bilingual name */}
+                    {language === 'ta' && product.nameEn && product.nameEn !== product.nameTa && (
+                      <p className="text-[10px] text-emerald-800/70 font-bold truncate leading-tight">
+                        {product.nameEn}
+                      </p>
+                    )}
+                    {language === 'en' && product.nameTa && (
+                      <p className="text-[10px] text-emerald-800/70 font-bold truncate font-tamil leading-tight">
+                        {product.nameTa}
+                      </p>
                     )}
                   </div>
-                  {/* Secondary bilingual name */}
-                  {language === 'ta' && product.nameEn && product.nameEn !== product.nameTa && (
-                    <p className="text-[11px] text-gray-500 font-bold truncate">
-                      {product.nameEn}
-                    </p>
-                  )}
-                  {language === 'en' && product.nameTa && (
-                    <p className="text-[11px] text-gray-500 font-bold truncate font-tamil">
-                      {product.nameTa}
-                    </p>
-                  )}
                 </div>
 
                 {/* DELETE BUTTON */}
                 <button
                   id={`btn-delete-${product.id}`}
                   type="button"
-                  onClick={() => handleClearItem(product.id)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition-all active:scale-95 touch-manipulation border ${
-                    isItemActive
-                      ? 'bg-red-50 text-red-700 hover:bg-red-100 border-red-300 shadow-xs'
-                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300'
-                  }`}
+                  onClick={() => setItemToDelete(product)}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-[10px] font-black transition-all active:scale-95 touch-manipulation shadow-xs bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white flex-shrink-0"
                   title={language === 'ta' ? 'அழி / நீக்கு' : 'Delete / Clear item'}
                 >
-                  <Trash2 className="w-3.5 h-3.5 text-red-600" />
-                  <span className="uppercase text-[11px] tracking-wider font-extrabold">
-                    {language === 'ta' ? 'நீக்கு (DELETE)' : 'DELETE'}
+                  <Trash2 className="w-3 h-3 text-white" />
+                  <span className="uppercase tracking-wider font-black">
+                    {language === 'ta' ? 'நீக்கு' : 'DELETE'}
                   </span>
                 </button>
               </div>
 
               {/* BOTTOM ROW: 3 INPUTS [ KG ] [ PRICE ] [ KG PRICE ] */}
-              <div className="grid grid-cols-3 gap-2 sm:gap-3 pt-1">
+              <div className="grid grid-cols-3 gap-1.5 sm:gap-2 pt-0.5">
                 {/* 1. KG INPUT */}
                 <div className="flex flex-col">
                   <label
                     htmlFor={`input-kg-${product.id}`}
-                    className="text-[11px] font-black uppercase text-gray-800 mb-1 text-center tracking-wider"
+                    className="text-[10px] font-black uppercase text-emerald-900 bg-emerald-100/90 py-0.5 px-1 rounded-md mb-1 text-center tracking-wider block"
                   >
                     {language === 'ta' ? 'கிலோ (KG)' : 'KG'}
                   </label>
-                  <div className="relative">
-                    <input
-                      id={`input-kg-${product.id}`}
-                      type="text"
-                      inputMode="decimal"
-                      value={currentKg}
-                      onChange={(e) => handleKgChange(product.id, e.target.value)}
-                      placeholder="KG"
-                      className="w-full h-11 px-2 bg-white border-2 border-gray-900 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 rounded-xl text-sm sm:text-base font-black text-gray-900 outline-none text-center shadow-xs transition-all placeholder:text-gray-400 placeholder:font-bold"
-                    />
-                  </div>
+                  <input
+                    id={`input-kg-${product.id}`}
+                    type="text"
+                    inputMode="decimal"
+                    value={currentKg}
+                    onChange={(e) => handleKgChange(product.id, e.target.value)}
+                    placeholder="KG"
+                    className={`w-full h-9 px-2 rounded-xl text-xs sm:text-sm font-black text-emerald-950 outline-none text-center transition-all border-2 ${
+                      parseFloat(currentKg) > 0
+                        ? 'bg-emerald-50/90 border-emerald-600 ring-2 ring-emerald-500/20 shadow-xs'
+                        : 'bg-white border-emerald-300 focus:border-emerald-600 focus:bg-emerald-50/30 shadow-2xs'
+                    } placeholder:text-emerald-400`}
+                  />
                 </div>
 
                 {/* 2. PRICE INPUT */}
                 <div className="flex flex-col">
                   <label
                     htmlFor={`input-price-${product.id}`}
-                    className="text-[11px] font-black uppercase text-gray-800 mb-1 text-center tracking-wider"
+                    className="text-[10px] font-black uppercase text-emerald-900 bg-emerald-100/90 py-0.5 px-1 rounded-md mb-1 text-center tracking-wider block"
                   >
                     {language === 'ta' ? 'விலை (PRICE)' : 'PRICE'}
                   </label>
-                  <div className="relative">
-                    <input
-                      id={`input-price-${product.id}`}
-                      type="text"
-                      inputMode="decimal"
-                      value={currentPrice}
-                      onChange={(e) => handlePriceChange(product.id, e.target.value)}
-                      placeholder="PRICE"
-                      className="w-full h-11 px-2 bg-white border-2 border-gray-900 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 rounded-xl text-sm sm:text-base font-black text-gray-900 outline-none text-center shadow-xs transition-all placeholder:text-gray-400 placeholder:font-bold"
-                    />
-                  </div>
+                  <input
+                    id={`input-price-${product.id}`}
+                    type="text"
+                    inputMode="decimal"
+                    value={currentPrice}
+                    onChange={(e) => handlePriceChange(product.id, e.target.value)}
+                    placeholder="PRICE"
+                    className={`w-full h-9 px-2 rounded-xl text-xs sm:text-sm font-black text-emerald-950 outline-none text-center transition-all border-2 ${
+                      parseFloat(currentPrice) > 0
+                        ? 'bg-emerald-50/90 border-emerald-600 ring-2 ring-emerald-500/20 shadow-xs'
+                        : 'bg-white border-emerald-300 focus:border-emerald-600 focus:bg-emerald-50/30 shadow-2xs'
+                    } placeholder:text-emerald-400`}
+                  />
                 </div>
 
                 {/* 3. KG PRICE INPUT */}
                 <div className="flex flex-col">
                   <label
                     htmlFor={`input-rate-${product.id}`}
-                    className="text-[11px] font-black uppercase text-gray-800 mb-1 text-center tracking-wider"
+                    className="text-[10px] font-black uppercase text-emerald-900 bg-emerald-100/90 py-0.5 px-1 rounded-md mb-1 text-center tracking-wider block"
                   >
                     {language === 'ta' ? 'கிலோ விலை' : 'KG PRICE'}
                   </label>
-                  <div className="relative">
-                    <input
-                      id={`input-rate-${product.id}`}
-                      type="text"
-                      inputMode="decimal"
-                      value={displayedRate}
-                      onChange={(e) => handleRateChange(product.id, e.target.value)}
-                      placeholder="KG PRICE"
-                      className="w-full h-11 px-2 bg-white border-2 border-gray-900 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 rounded-xl text-sm sm:text-base font-black text-gray-900 outline-none text-center shadow-xs transition-all placeholder:text-gray-400 placeholder:font-bold"
-                    />
-                  </div>
+                  <input
+                    id={`input-rate-${product.id}`}
+                    type="text"
+                    inputMode="decimal"
+                    value={displayedRate}
+                    onChange={(e) => handleRateChange(product.id, e.target.value)}
+                    placeholder="KG PRICE"
+                    className="w-full h-9 px-2 bg-emerald-50/60 hover:bg-emerald-50/90 focus:bg-white border-2 border-emerald-400/90 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 rounded-xl text-xs sm:text-sm font-black text-emerald-950 outline-none text-center shadow-2xs transition-all placeholder:text-emerald-400"
+                  />
                 </div>
               </div>
             </div>
@@ -1100,11 +878,11 @@ export const BillingPage: React.FC<BillingPageProps> = ({
       </div>
 
       {/* Fixed Bottom Total & Actions Bar */}
-      <div className="mt-4 sticky bottom-20 z-20 bg-white/95 backdrop-blur-md border border-emerald-300 rounded-3xl p-3.5 shadow-xl">
+      <div className="mt-4 sticky bottom-20 z-20 bg-white/95 backdrop-blur-md border-2 border-emerald-300 rounded-3xl p-4 shadow-xl shadow-emerald-950/10">
         {/* Bill Summary */}
         <div className="flex items-center justify-between mb-3 px-1">
           <div>
-            <span className="text-[11px] font-bold uppercase text-gray-500 block">
+            <span className="text-[11px] font-bold uppercase text-emerald-900 block">
               {t.totalKg}
             </span>
             <span className="text-lg sm:text-xl font-black text-emerald-950">
@@ -1113,10 +891,10 @@ export const BillingPage: React.FC<BillingPageProps> = ({
           </div>
 
           <div className="text-right">
-            <span className="text-[11px] font-bold uppercase text-gray-500 block">
+            <span className="text-[11px] font-bold uppercase text-emerald-900 block">
               {t.totalAmount}
             </span>
-            <span className="text-xl sm:text-2xl font-black text-emerald-700">
+            <span className="text-xl sm:text-2xl font-black text-emerald-800">
               ₹{Math.round(totalAmount).toLocaleString('en-IN')}
             </span>
           </div>
@@ -1124,15 +902,16 @@ export const BillingPage: React.FC<BillingPageProps> = ({
 
         {/* Action Buttons: Create Bill and Bluetooth Print */}
         <div className="grid grid-cols-2 gap-2">
-          {/* Create & Save Bill */}
+          {/* Create & Send Bill */}
           <button
             id="btn-create-bill"
             type="button"
             onClick={() => handleCreateBill(false)}
             disabled={activeBillItems.length === 0}
-            className="py-3 px-3 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-40 disabled:cursor-not-allowed text-white font-extrabold text-xs sm:text-sm rounded-2xl shadow-md flex items-center justify-center gap-1.5 transition-all active:scale-98"
+            className="py-3 px-3 bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-xs sm:text-sm rounded-2xl shadow-md shadow-emerald-700/25 flex items-center justify-center gap-1.5 transition-all active:scale-98"
+            title={language === 'ta' ? 'பில் பார்க்க & அனுப்ப' : 'Create & Send Bill'}
           >
-            <Check className="w-4 h-4" />
+            <Send className="w-4 h-4 text-white" />
             <span>{t.createBill}</span>
           </button>
 
@@ -1142,13 +921,58 @@ export const BillingPage: React.FC<BillingPageProps> = ({
             type="button"
             onClick={() => handleCreateBill(true)}
             disabled={activeBillItems.length === 0}
-            className="py-3 px-3 bg-emerald-800 hover:bg-emerald-900 active:bg-emerald-950 disabled:opacity-40 disabled:cursor-not-allowed text-white font-extrabold text-xs sm:text-sm rounded-2xl shadow-md flex items-center justify-center gap-1.5 transition-all active:scale-98"
+            className="py-3 px-3 bg-emerald-800 hover:bg-emerald-900 active:bg-emerald-950 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-xs sm:text-sm rounded-2xl shadow-md shadow-emerald-800/25 flex items-center justify-center gap-1.5 transition-all active:scale-98"
           >
-            <Bluetooth className="w-4 h-4" />
+            <Bluetooth className="w-4 h-4 text-white" />
             <span>{t.bluetoothPrint}</span>
           </button>
         </div>
       </div>
+
+      {/* Confirmation Modal: Delete Item */}
+      <ConfirmDeleteModal
+        isOpen={!!itemToDelete}
+        title={language === 'ta' ? 'பொருளை நீக்க வேண்டுமா?' : 'Delete item?'}
+        message={
+          language === 'ta'
+            ? `"${itemToDelete ? getProductName(itemToDelete, language) : ''}" பொருளின் எடையை இந்த பில்லில் இருந்து நீக்க வேண்டுமா?`
+            : `Do you want to delete "${itemToDelete ? getProductName(itemToDelete, language) : ''}" from this bill?`
+        }
+        itemDetails={
+          itemToDelete && billingInputs[itemToDelete.id]
+            ? `${billingInputs[itemToDelete.id]?.kgInput || '0'} KG — ₹${billingInputs[itemToDelete.id]?.priceInput || '0'}`
+            : undefined
+        }
+        confirmLabel={language === 'ta' ? 'ஆம், நீக்கு' : 'Yes, Delete'}
+        cancelLabel={language === 'ta' ? 'ரத்து' : 'Cancel'}
+        language={language}
+        onConfirm={() => {
+          if (itemToDelete) {
+            handleClearItem(itemToDelete.id);
+            setItemToDelete(null);
+          }
+        }}
+        onCancel={() => setItemToDelete(null)}
+      />
+
+      {/* Confirmation Modal: Clear Entire Bill */}
+      <ConfirmDeleteModal
+        isOpen={showClearAllConfirm}
+        title={language === 'ta' ? 'பில்லை அழிக்க வேண்டுமா?' : 'Clear entire bill?'}
+        message={
+          language === 'ta'
+            ? 'இந்த பில்லில் பதிவு செய்யப்பட்ட அனைத்து எடை மற்றும் விலை விவரங்களையும் நீக்க வேண்டுமா?'
+            : 'Do you want to clear all entered items and reset this bill?'
+        }
+        confirmLabel={language === 'ta' ? 'ஆம், அழி' : 'Yes, Clear'}
+        cancelLabel={language === 'ta' ? 'ரத்து' : 'Cancel'}
+        language={language}
+        onConfirm={() => {
+          handleClearAll();
+          setShowClearAllConfirm(false);
+        }}
+        onCancel={() => setShowClearAllConfirm(false)}
+      />
     </div>
   );
 };

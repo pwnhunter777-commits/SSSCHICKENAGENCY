@@ -43,6 +43,7 @@ interface ReceiptModalProps {
   isDraft?: boolean;
   onSaveBill?: (bill: Bill) => void;
   onUpdateHotelPhone?: (hotelIdOrName: string, phone: string) => void;
+  onBillSaved?: () => void;
   onClose: () => void;
 }
 
@@ -55,6 +56,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   isDraft = false,
   onSaveBill,
   onUpdateHotelPhone,
+  onBillSaved,
   onClose,
 }) => {
   // Allow toggling between English and Tamil directly in the modal while default is app language
@@ -62,7 +64,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   const [isSharingWhatsApp, setIsSharingWhatsApp] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
-  const [showWhatsAppInput, setShowWhatsAppInput] = useState(false);
+  const [showWhatsAppInput, setShowWhatsAppInput] = useState(true);
   const [recipientPhone, setRecipientPhone] = useState('');
   const [isSavedToHistory, setIsSavedToHistory] = useState(!isDraft);
 
@@ -94,11 +96,14 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
 
   const fontScale = (settings.fontSizeScale || 100) / 100;
 
-  // Add bill to history on explicit user action (print, whatsapp, pdf download, or save)
+  // Add bill to history on explicit user action (Send, print, pdf download, or save)
   const ensureSavedToHistory = () => {
     if (!isSavedToHistory && onSaveBill && bill) {
       onSaveBill(bill);
       setIsSavedToHistory(true);
+      if (onBillSaved) {
+        onBillSaved();
+      }
       setStatusMessage({
         type: 'success',
         text: isTamil ? '✓ பில் வரலாற்றில் சேர்க்கப்பட்டது!' : '✓ Bill saved to History!',
@@ -107,14 +112,6 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   };
 
   const handleCloseModal = () => {
-    if (!isSavedToHistory) {
-      const confirmClose = window.confirm(
-        isTamil
-          ? 'இந்த பில் இன்னும் பில் வரலாற்றில் சேமிக்கப்படவில்லை. நிச்சயமாக நீக்கி மூடவா?'
-          : 'This bill is not saved to history yet. Are you sure you want to discard and close?'
-      );
-      if (!confirmClose) return;
-    }
     onClose();
   };
 
@@ -229,15 +226,15 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/80 backdrop-blur-xs animate-in fade-in duration-200">
       <div className="relative w-full max-w-xl bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[96vh] border border-slate-300">
         {/* Modal Top Bar */}
-        <div className="bg-slate-900 text-white px-4 py-3 flex items-center justify-between shadow-sm">
+        <div className="bg-gradient-to-r from-emerald-950 via-emerald-900 to-emerald-950 text-white px-4 py-3 flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center">
-              <FileText className="w-4 h-4 text-emerald-400" />
+            <div className="w-8 h-8 rounded-lg bg-emerald-800/80 flex items-center justify-center">
+              <FileText className="w-4 h-4 text-emerald-300" />
             </div>
             <div className="flex items-center gap-2">
-              <h3 className="font-extrabold text-sm sm:text-base flex items-center gap-2">
+              <h3 className="font-black text-sm sm:text-base flex items-center gap-2">
                 <span>{isTamil ? 'பில்' : 'Bill'}</span>
-                <span className="bg-slate-800 text-emerald-400 text-xs px-2 py-0.5 rounded font-mono font-bold">
+                <span className="bg-emerald-900 text-emerald-200 border border-emerald-700/60 text-xs px-2 py-0.5 rounded font-mono font-black">
                   #{bill.billNumber}
                 </span>
               </h3>
@@ -247,7 +244,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                 </span>
               ) : (
                 <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 text-[10px] sm:text-[11px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
-                  <Check className="w-3 h-3 text-emerald-400" />
+                  <Check className="w-3 h-3 text-emerald-300" />
                   <span>{t.savedBillBadge || (isTamil ? 'வரலாற்றில் உள்ளது' : 'Saved')}</span>
                 </span>
               )}
@@ -256,14 +253,14 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
 
           <div className="flex items-center gap-2">
             {/* Quick Bill Language Switcher */}
-            <div className="flex items-center bg-slate-800 rounded-lg p-0.5 border border-slate-700">
+            <div className="flex items-center bg-emerald-950/80 rounded-lg p-0.5 border border-emerald-800">
               <button
                 type="button"
                 onClick={() => setBillLang('ta')}
-                className={`px-2 py-1 rounded text-xs font-bold transition-colors ${
+                className={`px-2 py-1 rounded text-xs font-black transition-colors ${
                   billLang === 'ta'
                     ? 'bg-emerald-600 text-white shadow-xs'
-                    : 'text-slate-300 hover:text-white'
+                    : 'text-emerald-200 hover:text-white'
                 }`}
                 title="தமிழ் பில்"
               >
@@ -272,10 +269,10 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               <button
                 type="button"
                 onClick={() => setBillLang('en')}
-                className={`px-2 py-1 rounded text-xs font-bold transition-colors ${
+                className={`px-2 py-1 rounded text-xs font-black transition-colors ${
                   billLang === 'en'
                     ? 'bg-emerald-600 text-white shadow-xs'
-                    : 'text-slate-300 hover:text-white'
+                    : 'text-emerald-200 hover:text-white'
                 }`}
                 title="English Bill"
               >
@@ -514,105 +511,103 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
         </div>
 
         {/* Modal Action Buttons */}
-        <div className="p-3 bg-slate-50 border-t border-slate-200 flex flex-col gap-2">
-          {/* Direct Save to History Button if not already saved */}
-          {!isSavedToHistory && (
-            <button
-              id="btn-save-draft-bill"
-              type="button"
-              onClick={ensureSavedToHistory}
-              className="w-full py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs transition-all touch-manipulation active:scale-[0.99]"
-            >
-              <Check className="w-4 h-4" />
-              <span>{t.saveToHistoryBtn || (isTamil ? 'பில் வரலாற்றில் சேர்க்க' : 'Save to Bill History')}</span>
-            </button>
-          )}
+        <div className="p-3.5 bg-slate-50 border-t border-slate-200 flex flex-col gap-2.5">
+          {/* 1. Primary WhatsApp Send Action Box */}
+          <div className="bg-emerald-50/90 border-2 border-emerald-400/80 rounded-2xl p-3 shadow-xs space-y-2">
+            <div className="flex items-center justify-between text-xs font-black text-slate-800">
+              <span className="flex items-center gap-1.5">
+                <Phone className="w-3.5 h-3.5 text-emerald-700" />
+                <span>
+                  {isTamil ? 'வாட்ஸ்அப் எண்:' : 'WhatsApp Number:'}
+                </span>
+              </span>
+              <span className="text-[11px] font-bold text-emerald-800 bg-emerald-100/90 px-2 py-0.5 rounded-full">
+                {!isSavedToHistory
+                  ? (isTamil ? 'அனுப்பிய பிறகு சேமிக்கப்படும்' : 'Saves bill on clicking Send')
+                  : (isTamil ? '✓ சேமிக்கப்பட்டது' : '✓ Saved to History')}
+              </span>
+            </div>
 
-          {/* 1. WhatsApp as A5 PDF */}
-          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-2 space-y-1.5">
-            {!showWhatsAppInput ? (
+            <div className="flex gap-2">
+              <input
+                id="modal-whatsapp-phone-input"
+                type="tel"
+                value={recipientPhone}
+                onChange={(e) => setRecipientPhone(e.target.value)}
+                placeholder="e.g. 9876543210"
+                className="flex-1 px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600 shadow-2xs"
+              />
               <button
-                id="modal-open-whatsapp-btn"
+                id="btn-send-whatsapp-confirm"
                 type="button"
-                onClick={() => setShowWhatsAppInput(true)}
-                className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl font-bold text-sm sm:text-base flex items-center justify-center gap-2 shadow-xs transition-all touch-manipulation active:scale-[0.99]"
+                disabled={isSharingWhatsApp}
+                onClick={handleSendWhatsAppPdf}
+                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 text-white font-black text-xs sm:text-sm rounded-xl flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/25 transition-all active:scale-98 flex-shrink-0"
+                title={isTamil ? 'பில் சேமித்து வாட்ஸ்அப்பில் அனுப்ப' : 'Save & Send Bill via WhatsApp'}
               >
-                <MessageCircle className="w-5 h-5 fill-white" />
-                <span>{isTamil ? 'வாட்ஸ்அப் A5 PDF' : 'WhatsApp (A5 PDF)'}</span>
+                <Send className="w-4 h-4" />
+                <span>
+                  {isSharingWhatsApp
+                    ? '...'
+                    : !isSavedToHistory
+                    ? (isTamil ? 'அனுப்புக (Send)' : 'Send Bill')
+                    : (isTamil ? 'மீண்டும் அனுப்பு' : 'Send Again')}
+                </span>
               </button>
-            ) : (
-              <div className="space-y-2 animate-in fade-in duration-150">
-                <div className="flex items-center justify-between text-xs font-bold text-slate-900">
-                  <span className="flex items-center gap-1">
-                    <Phone className="w-3.5 h-3.5 text-emerald-700" />
-                    <span>
-                      {isTamil ? 'வாட்ஸ்அப் எண் (A5 PDF அனுப்ப):' : 'WhatsApp Number (Send A5 PDF):'}
-                    </span>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setShowWhatsAppInput(false)}
-                    className="text-slate-500 hover:text-slate-700 text-xs underline font-bold"
-                  >
-                    {isTamil ? 'மறை' : 'Hide'}
-                  </button>
-                </div>
-                <div className="flex gap-2">
-                  <input
-                    id="modal-whatsapp-phone-input"
-                    type="tel"
-                    value={recipientPhone}
-                    onChange={(e) => setRecipientPhone(e.target.value)}
-                    placeholder="e.g. 9876543210"
-                    className="flex-1 px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-emerald-600"
-                  />
-                  <button
-                    id="btn-send-whatsapp-confirm"
-                    type="button"
-                    disabled={isSharingWhatsApp}
-                    onClick={handleSendWhatsAppPdf}
-                    className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 disabled:opacity-50 text-white font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-xs"
-                  >
-                    <Send className="w-3.5 h-3.5" />
-                    <span>{isSharingWhatsApp ? '...' : (isTamil ? 'PDF அனுப்பு' : 'Send PDF')}</span>
-                  </button>
-                </div>
-              </div>
-            )}
+            </div>
           </div>
 
-          {/* 2. Download A5 PDF & Print Buttons */}
-          <div className="grid grid-cols-2 gap-2">
+          {/* 2. Secondary Quick Actions: Save Only (if draft), Download PDF, Print */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {!isSavedToHistory && (
+              <button
+                id="btn-save-draft-bill"
+                type="button"
+                onClick={ensureSavedToHistory}
+                className="col-span-2 sm:col-span-1 py-2.5 px-3 bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white rounded-xl font-black text-xs flex items-center justify-center gap-1.5 shadow-md shadow-emerald-700/20 transition-all active:scale-98"
+                title={isTamil ? 'வாட்ஸ்அப் அனுப்பாமல் பில் சேமிக்க' : 'Save bill to history without sending'}
+              >
+                <Check className="w-3.5 h-3.5 text-white" />
+                <span>{isTamil ? 'பில் மட்டும் சேமி' : 'Save Only'}</span>
+              </button>
+            )}
+
             <button
               id="modal-download-pdf-btn"
               type="button"
               disabled={isDownloadingPdf}
               onClick={handleDownloadPdf}
-              className="py-2.5 px-3 bg-white hover:bg-slate-100 active:bg-slate-200 border border-slate-400 text-slate-800 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-2xs transition-all touch-manipulation active:scale-[0.99]"
+              className={`py-2.5 px-3 bg-emerald-800 hover:bg-emerald-900 active:bg-emerald-950 text-white rounded-xl font-black text-xs flex items-center justify-center gap-1.5 shadow-md shadow-emerald-800/20 transition-all active:scale-98 ${
+                isSavedToHistory ? 'col-span-1' : ''
+              }`}
             >
-              <Download className="w-4 h-4 text-slate-700" />
-              <span>{isDownloadingPdf ? '...' : (isTamil ? 'A5 PDF சேமி' : 'Save A5 PDF')}</span>
+              <Download className="w-3.5 h-3.5 text-white" />
+              <span>{isDownloadingPdf ? '...' : (isTamil ? 'A5 PDF' : 'Save PDF')}</span>
             </button>
 
             <button
               id="modal-main-print-btn"
               type="button"
               onClick={handlePrint}
-              className="py-2.5 px-3 bg-slate-900 hover:bg-slate-800 active:bg-black text-white rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-xs transition-all touch-manipulation active:scale-[0.99]"
+              className={`py-2.5 px-3 bg-slate-900 hover:bg-black active:bg-slate-950 text-white rounded-xl font-black text-xs flex items-center justify-center gap-1.5 shadow-md shadow-slate-900/20 transition-all active:scale-98 ${
+                isSavedToHistory ? 'col-span-1' : ''
+              }`}
             >
-              <Printer className="w-4 h-4" />
+              <Printer className="w-3.5 h-3.5 text-white" />
               <span>{isTamil ? 'பிரிண்ட் (A5)' : 'Print (A5)'}</span>
             </button>
           </div>
 
-          {/* 3. Cancel / Close */}
+          {/* 3. Back to Edit / Close Button */}
           <button
             id="modal-cancel-btn"
             type="button"
             onClick={handleCloseModal}
-            className="w-full py-1 bg-transparent hover:bg-slate-200 text-slate-500 text-xs font-semibold rounded-lg transition-colors"
+            className="w-full py-2.5 px-3 bg-slate-700 hover:bg-slate-800 active:bg-slate-900 text-white text-xs font-black rounded-xl transition-all active:scale-98 shadow-sm text-center"
           >
-            {isTamil ? 'மூடு' : 'Close'}
+            {!isSavedToHistory
+              ? (isTamil ? '← பில் திருத்த செல்ல (ரத்து)' : '← Back to Edit Bill (Cancel)')
+              : (isTamil ? 'மூடு (Close)' : 'Close')}
           </button>
         </div>
       </div>

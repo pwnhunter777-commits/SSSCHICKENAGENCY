@@ -570,10 +570,11 @@ export function exportHotelStatementToCSV(
       lines.push(`#${b.billNumber},${b.date},${b.totalKg.toFixed(2)},${b.totalAmount.toFixed(2)},${itemsSummary}`);
     });
     lines.push('');
-    lines.push('--- PAYMENTS RECEIVED ---');
-    lines.push('Payment ID,Date,Amount (Rs),Payment Mode,Notes');
+    lines.push('--- PAYMENTS & BALANCE ADJUSTMENTS ---');
+    lines.push('ID,Date,Type,Amount (Rs),Payment Mode,Notes');
     payments.forEach((p) => {
-      lines.push(`${p.id},${p.date},${p.amount.toFixed(2)},${p.paymentMode || 'Cash'},"${(p.notes || '').replace(/"/g, '""')}"`);
+      const entryType = p.type === 'balance_add' ? 'Balance Add (+)' : 'Payment Received (-)';
+      lines.push(`${p.id},${p.date},${entryType},${p.amount.toFixed(2)},${p.paymentMode || 'Cash'},"${(p.notes || '').replace(/"/g, '""')}"`);
     });
 
     const csvContent = lines.join('\n');

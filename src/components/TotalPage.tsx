@@ -88,14 +88,14 @@ export const TotalPage: React.FC<TotalPageProps> = ({
         </div>
 
         {/* Filter Toggle: All Time vs Today */}
-        <div className="bg-emerald-100/70 p-0.5 rounded-xl flex items-center gap-1 border border-emerald-200">
+        <div className="bg-white p-1 rounded-2xl flex items-center gap-1 border-2 border-emerald-200 shadow-2xs">
           <button
             type="button"
             onClick={() => setFilterMode('today')}
-            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all ${
               filterMode === 'today'
-                ? 'bg-emerald-700 text-white shadow-xs'
-                : 'text-emerald-900 hover:bg-emerald-200/50'
+                ? 'bg-emerald-700 text-white shadow-md shadow-emerald-700/25'
+                : 'text-emerald-950 hover:bg-emerald-700 hover:text-white font-bold'
             }`}
           >
             {t.today}
@@ -103,10 +103,10 @@ export const TotalPage: React.FC<TotalPageProps> = ({
           <button
             type="button"
             onClick={() => setFilterMode('all')}
-            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all ${
               filterMode === 'all'
-                ? 'bg-emerald-700 text-white shadow-xs'
-                : 'text-emerald-900 hover:bg-emerald-200/50'
+                ? 'bg-emerald-700 text-white shadow-md shadow-emerald-700/25'
+                : 'text-emerald-950 hover:bg-emerald-700 hover:text-white font-bold'
             }`}
           >
             {t.allTime}
@@ -117,26 +117,26 @@ export const TotalPage: React.FC<TotalPageProps> = ({
       {/* Grand Summary Cards */}
       <div className="grid grid-cols-2 gap-3 mb-3">
         {/* Total KG Sold */}
-        <div className="bg-white border-2 border-emerald-300 rounded-3xl p-4 shadow-xs">
+        <div className="bg-white border-2 border-emerald-200 rounded-3xl p-4 shadow-xs">
           <div className="flex items-center gap-2 mb-1 text-emerald-700">
             <div className="w-8 h-8 rounded-xl bg-emerald-100 flex items-center justify-center">
               <Scale className="w-4 h-4 text-emerald-800" />
             </div>
-            <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+            <span className="text-[11px] font-bold text-emerald-900 uppercase tracking-wider">
               {t.totalKgSold}
             </span>
           </div>
-          <div className="text-xl sm:text-2xl font-extrabold text-emerald-950 mt-1">
+          <div className="text-xl sm:text-2xl font-black text-emerald-950 mt-1">
             {overallTotalKg.toFixed(2)}
             <span className="text-xs font-bold text-emerald-700 ml-1">{t.kgUnit}</span>
           </div>
-          <span className="text-[10px] text-gray-400 mt-0.5 block font-medium">
+          <span className="text-[10px] text-emerald-800/60 mt-0.5 block font-bold">
             {language === 'ta' ? `${targetBills.length} ரசீதுகளில் இருந்து` : `From ${targetBills.length} saved bills`}
           </span>
         </div>
 
         {/* Total Amount */}
-        <div className="bg-emerald-700 text-white rounded-3xl p-4 shadow-md">
+        <div className="bg-gradient-to-br from-emerald-700 via-emerald-800 to-emerald-900 text-white rounded-3xl p-4 shadow-md shadow-emerald-950/15 border-b-2 border-emerald-600/30">
           <div className="flex items-center gap-2 mb-1 text-emerald-100">
             <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-xs">
               <IndianRupee className="w-4 h-4 text-white" />
@@ -145,10 +145,10 @@ export const TotalPage: React.FC<TotalPageProps> = ({
               {t.totalAmount}
             </span>
           </div>
-          <div className="text-xl sm:text-2xl font-extrabold text-white mt-1">
+          <div className="text-xl sm:text-2xl font-black text-white mt-1">
             ₹{Math.round(overallTotalAmount).toLocaleString('en-IN')}
           </div>
-          <span className="text-[10px] text-emerald-200 mt-0.5 block font-medium">
+          <span className="text-[10px] text-emerald-200 mt-0.5 block font-semibold">
             {language === 'ta' ? 'மொத்த விற்பனைத் தொகை' : 'Total sales revenue'}
           </span>
         </div>
@@ -190,9 +190,9 @@ export const TotalPage: React.FC<TotalPageProps> = ({
             id="btn-export-totals-file"
             type="button"
             onClick={() => exportBillsToCSV(targetBills)}
-            className="w-full py-2.5 px-3 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-900 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition-colors active:scale-98"
+            className="w-full py-3 px-3 bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all active:scale-98 shadow-md shadow-emerald-700/20"
           >
-            <Download className="w-4 h-4 text-emerald-700" />
+            <Download className="w-4 h-4 text-white" />
             <span>
               {language === 'ta'
                 ? `${filterMode === 'today' ? 'இன்றைய' : 'முழு'} விற்பனை அறிக்கையை CSV ஆக சேமி`
@@ -203,15 +203,15 @@ export const TotalPage: React.FC<TotalPageProps> = ({
       )}
 
       {/* Product Totals Section (Shows ALL products) */}
-      <div className="bg-white border border-emerald-200 rounded-3xl p-4 shadow-xs">
+      <div className="bg-white border-2 border-emerald-200 rounded-3xl p-4 shadow-xs">
         <div className="flex items-center justify-between pb-3 mb-2 border-b border-emerald-100">
           <div className="flex items-center gap-2">
             <Layers className="w-4 h-4 text-emerald-700" />
-            <h3 className="text-xs sm:text-sm font-bold text-emerald-950 uppercase tracking-wide">
+            <h3 className="text-xs sm:text-sm font-black text-emerald-950 uppercase tracking-wide">
               {t.productSummary}
             </h3>
           </div>
-          <span className="text-xs font-bold text-gray-500">
+          <span className="text-xs font-black text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-lg">
             {productTotals.length} {t.chickenProducts}
           </span>
         </div>
@@ -229,14 +229,14 @@ export const TotalPage: React.FC<TotalPageProps> = ({
               >
                 {/* Product Name & order number */}
                 <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                  <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold flex items-center justify-center flex-shrink-0">
+                  <span className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-800 text-xs font-black flex items-center justify-center flex-shrink-0">
                     {idx + 1}
                   </span>
                   <div className="min-w-0">
-                    <h4 className="text-xs sm:text-sm font-bold text-gray-900 truncate">
+                    <h4 className="text-xs sm:text-sm font-black text-emerald-950 truncate uppercase tracking-tight">
                       {displayName}
                     </h4>
-                    <span className="text-[10px] text-gray-400">
+                    <span className="text-[10px] text-emerald-800/60 font-bold">
                       {language === 'ta' ? `${item.count} விற்பனைகளில்` : `Sold in ${item.count} orders`}
                     </span>
                   </div>
@@ -245,9 +245,9 @@ export const TotalPage: React.FC<TotalPageProps> = ({
                 {/* Total KG & Total Amount for this item */}
                 <div className="text-right flex-shrink-0">
                   <div className="text-xs sm:text-sm font-black text-emerald-950">
-                    {item.totalKg.toFixed(2)} <span className="text-[10px] font-semibold text-gray-500">{t.kgUnit}</span>
+                    {item.totalKg.toFixed(2)} <span className="text-[10px] font-bold text-emerald-700">{t.kgUnit}</span>
                   </div>
-                  <div className="text-xs font-bold text-emerald-700">
+                  <div className="text-xs font-black text-emerald-600">
                     ₹{Math.round(item.totalAmount).toLocaleString('en-IN')}
                   </div>
                 </div>

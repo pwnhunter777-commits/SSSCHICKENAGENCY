@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { AppPage, Bill, DailyPriceRecord, HotelItem, HotelPayment, LanguageCode, ProductItem, ShopSettings } from './types';
 import {
   addBill,
@@ -58,7 +58,68 @@ export default function App() {
   });
 
   // Receipt Modal State
-  const [activeReceiptState, setActiveReceiptState] = useState<{ bill: Bill; isDraft?: boolean } | null>(null);
+  const [activeReceiptState, setActiveReceiptState] = useState<{
+    bill: Bill;
+    isDraft?: boolean;
+    onSaved?: () => void;
+  } | null>(null);
+
+  // Back Navigation & App Exit Protection State
+  const [exitToast, setExitToast] = useState<string | null>(null);
+  const lastBackPressRef = useRef<number>(0);
+  const currentPageRef = useRef<AppPage>(currentPage);
+  currentPageRef.current = currentPage;
+  const activeReceiptRef = useRef(activeReceiptState);
+  activeReceiptRef.current = activeReceiptState;
+
+  // Safe navigation function updating history
+  const navigateToPage = (page: AppPage) => {
+    if (page === currentPage) return;
+    window.history.pushState({ page }, '');
+    setCurrentPage(page);
+  };
+
+  // Hardware/Browser Back Navigation Listener
+  useEffect(() => {
+    // Set initial history state
+    window.history.replaceState({ page: currentPage }, '');
+
+    const handlePopState = () => {
+      // 1. If Receipt Modal is open, close modal first and stay on current page
+      if (activeReceiptRef.current) {
+        setActiveReceiptState(null);
+        window.history.pushState({ page: currentPageRef.current }, '');
+        return;
+      }
+
+      // 2. If on any subpage, navigate to main page ('billing') before exiting
+      if (currentPageRef.current !== 'billing') {
+        setCurrentPage('billing');
+        window.history.pushState({ page: 'billing' }, '');
+        return;
+      }
+
+      // 3. If already on main page ('billing'), require double press within 2 seconds to close app
+      const now = Date.now();
+      if (now - lastBackPressRef.current < 2000) {
+        // Second press: let the browser history proceed so the app can close
+        setExitToast(null);
+      } else {
+        lastBackPressRef.current = now;
+        window.history.pushState({ page: 'billing' }, '');
+        const msg = language === 'ta' ? 'வெளியேற மீண்டும் பின்செல்லவும்' : 'Press Back again to exit app';
+        setExitToast(msg);
+        setTimeout(() => {
+          setExitToast((curr) => (curr === msg ? null : curr));
+        }, 2000);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [language, currentPage]);
 
   // Synchronize dynamic font size scale to root document
   useEffect(() => {
@@ -190,15 +251,17 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-gray-900 flex flex-col font-sans select-none antialiased">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50/70 via-white to-emerald-50/50 text-emerald-950 flex flex-col font-sans select-none antialiased">
       {/* Centered Mobile Layout Container */}
-      <div className="w-full max-w-md mx-auto min-h-screen flex flex-col bg-white shadow-xl relative">
+      <div className="w-full max-w-md mx-auto min-h-screen flex flex-col bg-white shadow-2xl shadow-emerald-950/10 border-x border-emerald-100 relative">
         {/* Top Header - Every Page */}
         <AppHeader
           settings={settings}
           language={language}
+          currentPage={currentPage}
           onLanguageChange={handleLanguageChange}
           onToggleBold={handleToggleBoldText}
+          onBackToMain={() => navigateToPage('billing')}
         />
 
         {/* Main 6 Pages Body */}
@@ -211,7 +274,7 @@ export default function App() {
               onSavePrices={handleSavePrices}
               onAddProduct={handleAddProduct}
               onDeleteProduct={handleDeleteProduct}
-              onNavigateToBilling={() => setCurrentPage('billing')}
+              onNavigateToBilling={() => navigateToPage('billing')}
             />
           )}
 
@@ -225,10 +288,15 @@ export default function App() {
               settings={settings}
               language={language}
               onSaveBill={handleSaveBill}
-              onOpenReceipt={(bill, isDraft) => setActiveReceiptState({ bill, isDraft: !!isDraft })}
-              onNavigateToDailyPrice={() => setCurrentPage('daily-price')}
-              onNavigateToHotel={() => setCurrentPage('hotel')}
+              onOpenReceipt={(bill, isDraft, onSaved) => {
+                window.history.pushState({ modal: 'receipt' }, '');
+                setActiveReceiptState({ bill, isDraft: !!isDraft, onSaved });
+              }}
+              onNavigateToDailyPrice={() => navigateToPage('daily-price')}
+              onNavigateToHotel={() => navigateToPage('hotel')}
               onAddHotel={handleAddHotel}
+              onAddProduct={handleAddProduct}
+              onDeleteProduct={handleDeleteProduct}
             />
           )}
 
@@ -238,7 +306,10 @@ export default function App() {
               settings={settings}
               language={language}
               onDeleteBill={handleDeleteBill}
-              onReprintBill={(bill) => setActiveReceiptState({ bill, isDraft: false })}
+              onReprintBill={(bill) => {
+                window.history.pushState({ modal: 'receipt' }, '');
+                setActiveReceiptState({ bill, isDraft: false });
+              }}
             />
           )}
 
@@ -247,7 +318,7 @@ export default function App() {
               bills={bills}
               products={products}
               language={language}
-              onNavigateToHotel={() => setCurrentPage('hotel')}
+              onNavigateToHotel={() => navigateToPage('hotel')}
             />
           )}
 
@@ -260,7 +331,10 @@ export default function App() {
               language={language}
               onAddPayment={handleAddPayment}
               onDeletePayment={handleDeletePayment}
-              onReprintBill={(bill) => setActiveReceiptState({ bill, isDraft: false })}
+              onReprintBill={(bill) => {
+                window.history.pushState({ modal: 'receipt' }, '');
+                setActiveReceiptState({ bill, isDraft: false });
+              }}
             />
           )}
 
@@ -272,7 +346,7 @@ export default function App() {
               language={language}
               onSaveSettings={handleSaveSettings}
               onSaveHotels={handleSaveHotels}
-              onNavigateToMain={() => setCurrentPage('billing')}
+              onNavigateToMain={() => navigateToPage('billing')}
               onDataRestored={handleDataRestored}
             />
           )}
@@ -281,7 +355,7 @@ export default function App() {
         {/* Bottom Navigation - Every Page */}
         <BottomNav
           currentPage={currentPage}
-          onPageChange={(page) => setCurrentPage(page)}
+          onPageChange={(page) => navigateToPage(page)}
           language={language}
         />
 
@@ -296,8 +370,19 @@ export default function App() {
             language={language}
             onSaveBill={handleSaveBill}
             onUpdateHotelPhone={handleUpdateHotelPhone}
+            onBillSaved={activeReceiptState.onSaved}
             onClose={() => setActiveReceiptState(null)}
           />
+        )}
+
+        {/* App Exit Confirmation Toast */}
+        {exitToast && (
+          <div
+            id="exit-app-toast"
+            className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-gray-900/95 text-white text-xs font-bold px-4 py-2 rounded-full shadow-2xl backdrop-blur-md flex items-center gap-2 border border-white/20 pointer-events-none"
+          >
+            <span>{exitToast}</span>
+          </div>
         )}
       </div>
     </div>

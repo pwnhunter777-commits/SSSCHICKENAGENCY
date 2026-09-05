@@ -3,6 +3,7 @@ import { BookOpen, Search, Trash2, Printer, Calendar, Building2, Download, Messa
 import { Bill, LanguageCode, ShopSettings } from '../types';
 import { exportBillsToCSV, formatDisplayDate } from '../utils/storage';
 import { TRANSLATIONS } from '../utils/translations';
+import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 
 interface RegisterPageProps {
   bills: Bill[];
@@ -110,10 +111,10 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
           <button
             type="button"
             onClick={() => setSelectedDateFilter('all')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-black whitespace-nowrap transition-all ${
               selectedDateFilter === 'all'
-                ? 'bg-emerald-700 text-white shadow-xs'
-                : 'bg-white text-emerald-900 border border-emerald-200 hover:bg-emerald-50'
+                ? 'bg-emerald-700 text-white shadow-md shadow-emerald-700/25'
+                : 'bg-emerald-950/10 text-emerald-950 border-2 border-emerald-600/30 hover:bg-emerald-700 hover:text-white'
             }`}
           >
             {t.allDates} ({bills.length})
@@ -126,15 +127,15 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
                 key={d}
                 type="button"
                 onClick={() => setSelectedDateFilter(d)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap flex items-center gap-1 transition-all ${
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-black whitespace-nowrap flex items-center gap-1.5 transition-all ${
                   isSelected
-                    ? 'bg-emerald-700 text-white shadow-xs'
-                    : 'bg-white text-emerald-900 border border-emerald-200 hover:bg-emerald-50'
+                    ? 'bg-emerald-700 text-white shadow-md shadow-emerald-700/25'
+                    : 'bg-emerald-950/10 text-emerald-950 border-2 border-emerald-600/30 hover:bg-emerald-700 hover:text-white'
                 }`}
               >
-                <Calendar className="w-3 h-3 text-emerald-600" />
+                <Calendar className={`w-3.5 h-3.5 ${isSelected ? 'text-white' : 'text-emerald-700'}`} />
                 <span>{formatDisplayDate(d)}</span>
-                <span className="text-[10px] opacity-75">({count})</span>
+                <span className="text-[10px] opacity-80">({count})</span>
               </button>
             );
           })}
@@ -143,7 +144,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
 
       {/* Bills List */}
       {filteredBills.length === 0 ? (
-        <div className="bg-white border border-dashed border-emerald-200 rounded-3xl p-8 text-center shadow-xs">
+        <div className="bg-white border-2 border-dashed border-emerald-200 rounded-3xl p-8 text-center shadow-xs">
           <BookOpen className="w-10 h-10 text-emerald-300 mx-auto mb-2" />
           <h3 className="text-sm font-bold text-gray-800">{t.noBillsFound}</h3>
           <p className="text-xs text-gray-500 mt-1">
@@ -158,21 +159,21 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
             <div
               key={bill.id}
               id={`register-bill-${bill.id}`}
-              className="bg-white border border-emerald-200 hover:border-emerald-400 rounded-2xl p-3.5 shadow-xs transition-all"
+              className="bg-white border-2 border-emerald-100 hover:border-emerald-300 rounded-2xl p-3.5 shadow-xs transition-all"
             >
               {/* Card Header: Bill #, Date, Hotel */}
-              <div className="flex items-start justify-between gap-2 pb-2.5 border-b border-emerald-50">
+              <div className="flex items-start justify-between gap-2 pb-2.5 border-b border-emerald-100">
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="px-2.5 py-0.5 rounded-lg bg-emerald-700 text-white font-mono font-bold text-xs">
+                    <span className="px-2.5 py-0.5 rounded-lg bg-emerald-700 text-white font-mono font-black text-xs">
                       #{bill.billNumber}
                     </span>
-                    <span className="text-xs font-semibold text-gray-500 flex items-center gap-1">
+                    <span className="text-xs font-bold text-emerald-950/70 flex items-center gap-1">
                       <Calendar className="w-3 h-3 text-emerald-600" />
                       {formatDisplayDate(bill.date)}
                     </span>
                   </div>
-                  <div className="flex items-center gap-1.5 mt-1.5 text-xs sm:text-sm font-bold text-emerald-950">
+                  <div className="flex items-center gap-1.5 mt-1.5 text-xs sm:text-sm font-black text-emerald-950">
                     <Building2 className="w-3.5 h-3.5 text-emerald-700 flex-shrink-0" />
                     <span className="truncate">{bill.hotelName}</span>
                   </div>
@@ -180,10 +181,10 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
 
                 {/* Total Value Badge */}
                 <div className="text-right flex-shrink-0">
-                  <span className="text-[10px] font-bold text-gray-400 block uppercase">
+                  <span className="text-[10px] font-bold text-emerald-900 block uppercase">
                     {t.totalAmount}
                   </span>
-                  <span className="text-base sm:text-lg font-extrabold text-emerald-700">
+                  <span className="text-base sm:text-lg font-black text-emerald-600">
                     ₹{Math.round(bill.totalAmount).toLocaleString('en-IN')}
                   </span>
                 </div>
@@ -195,26 +196,26 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
                   <strong className="text-emerald-900">{bill.items.length}</strong> {language === 'ta' ? 'பொருட்கள்' : 'items'} &bull;{' '}
                   <strong className="text-emerald-900">{bill.totalKg.toFixed(2)} {t.kgUnit}</strong>
                 </span>
-                <span className="text-[10px] text-gray-400 truncate max-w-[150px]">
+                <span className="text-[10px] text-emerald-800/60 truncate max-w-[150px]">
                   {bill.items.map((i) => i.productName).join(', ')}
                 </span>
               </div>
 
               {/* Previous Balance breakdown if attached to bill */}
               {bill.previousBalance !== undefined && bill.previousBalance !== 0 && (
-                <div className="mb-2 text-[10px] text-amber-900 bg-amber-50/90 border border-amber-200/80 px-2 py-1 rounded-lg flex items-center justify-between">
+                <div className="mb-2 text-[10px] text-amber-900 bg-amber-50/90 border border-amber-200/80 px-2.5 py-1 rounded-xl flex items-center justify-between font-bold">
                   <span>{language === 'ta' ? 'முந்தைய பாக்கி:' : 'Prev Bal:'} ₹{Math.round(bill.previousBalance).toLocaleString('en-IN')}</span>
-                  <span className="font-bold">{language === 'ta' ? 'மொத்த பாக்கி:' : 'Total Due:'} ₹{Math.round(bill.netTotalWithBalance ?? (bill.totalAmount + bill.previousBalance)).toLocaleString('en-IN')}</span>
+                  <span className="text-emerald-900">{language === 'ta' ? 'மொத்த பாக்கி:' : 'Total Due:'} ₹{Math.round(bill.netTotalWithBalance ?? (bill.totalAmount + bill.previousBalance)).toLocaleString('en-IN')}</span>
                 </div>
               )}
 
               {/* Action Buttons: WhatsApp, Reprint & Delete */}
-              <div className="grid grid-cols-3 gap-1.5 pt-2 border-t border-emerald-50">
+              <div className="grid grid-cols-3 gap-1.5 pt-2 border-t border-emerald-100">
                 <button
                   id={`btn-whatsapp-bill-${bill.id}`}
                   type="button"
                   onClick={() => onReprintBill(bill)}
-                  className="py-2 px-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition-colors active:scale-95 shadow-xs"
+                  className="py-2 px-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1 transition-colors active:scale-95 shadow-sm shadow-emerald-600/20"
                   title={language === 'ta' ? 'வாட்ஸ்அப் PDF அனுப்ப' : 'Send WhatsApp PDF'}
                 >
                   <MessageCircle className="w-3.5 h-3.5 fill-white" />
@@ -225,9 +226,9 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
                   id={`btn-reprint-bill-${bill.id}`}
                   type="button"
                   onClick={() => onReprintBill(bill)}
-                  className="py-2 px-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition-colors active:scale-95 border border-emerald-200/60"
+                  className="py-2 px-2 bg-emerald-800 hover:bg-emerald-900 active:bg-emerald-950 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1 transition-colors active:scale-95 shadow-sm shadow-emerald-900/20"
                 >
-                  <Printer className="w-3.5 h-3.5 text-emerald-700" />
+                  <Printer className="w-3.5 h-3.5 text-white" />
                   <span className="truncate">{t.reprint}</span>
                 </button>
 
@@ -235,9 +236,9 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
                   id={`btn-delete-bill-${bill.id}`}
                   type="button"
                   onClick={() => setBillToDelete(bill)}
-                  className="py-2 px-2 bg-gray-100 hover:bg-red-50 text-gray-600 hover:text-red-600 rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition-colors active:scale-95 border border-gray-200 hover:border-red-200"
+                  className="py-2 px-2 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1 transition-colors active:scale-95 shadow-sm shadow-rose-600/20"
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
+                  <Trash2 className="w-3.5 h-3.5 text-white" />
                   <span className="truncate">{t.delete}</span>
                 </button>
               </div>
@@ -247,38 +248,25 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
       )}
 
       {/* Delete Confirmation Dialog */}
-      {billToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-emerald-950/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white rounded-3xl p-5 w-full max-w-sm shadow-2xl border border-emerald-100">
-            <h3 className="text-base font-bold text-gray-900 mb-2">
-              {language === 'ta' ? `ரசீது #${billToDelete.billNumber} நீக்கவா?` : `Delete Bill #${billToDelete.billNumber}?`}
-            </h3>
-            <p className="text-xs text-gray-600 mb-4">
-              {language === 'ta'
-                ? `ஹோட்டல்: ${billToDelete.hotelName} (${formatDisplayDate(billToDelete.date)}) - மொத்தம் ₹${Math.round(billToDelete.totalAmount)} ஆகிய ரசீதை நிச்சயமாக நீக்க விரும்புகிறீர்களா?`
-                : `Are you sure you want to delete this bill for ${billToDelete.hotelName} (${formatDisplayDate(billToDelete.date)}) totaling ₹${Math.round(billToDelete.totalAmount)}?`}
-            </p>
-
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setBillToDelete(null)}
-                className="py-2.5 px-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-xs transition-colors"
-              >
-                {t.cancel}
-              </button>
-              <button
-                id="btn-confirm-delete-bill"
-                type="button"
-                onClick={confirmDelete}
-                className="py-2.5 px-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-xs shadow-md transition-colors"
-              >
-                {t.delete}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDeleteModal
+        isOpen={!!billToDelete}
+        title={language === 'ta' ? `ரசீது #${billToDelete?.billNumber} நீக்க வேண்டுமா?` : `Delete Bill #${billToDelete?.billNumber}?`}
+        message={
+          language === 'ta'
+            ? 'இந்த ரசீதை பில் பதிவேட்டிலிருந்து நீக்க விரும்புகிறீர்களா?'
+            : 'Are you sure you want to delete this bill record from the register?'
+        }
+        itemDetails={
+          billToDelete
+            ? `${billToDelete.hotelName} — ₹${Math.round(billToDelete.totalAmount).toLocaleString('en-IN')} (${formatDisplayDate(billToDelete.date)})`
+            : undefined
+        }
+        confirmLabel={t.delete}
+        cancelLabel={t.cancel}
+        language={language}
+        onConfirm={confirmDelete}
+        onCancel={() => setBillToDelete(null)}
+      />
     </div>
   );
 };

@@ -16,6 +16,7 @@ import {
   AlertCircle,
   Sparkles,
   MessageCircle,
+  RefreshCw,
 } from 'lucide-react';
 import { Bill, getHotelName, HotelItem, HotelPayment, LanguageCode, ShopSettings } from '../types';
 import {
@@ -24,6 +25,7 @@ import {
   getTodayDateString,
 } from '../utils/storage';
 import { TRANSLATIONS } from '../utils/translations';
+import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 
 interface HotelPageProps {
   hotels: HotelItem[];
@@ -57,11 +59,13 @@ export const HotelPage: React.FC<HotelPageProps> = ({
   // Active Ledger Tab: 'payments' | 'bills'
   const [activeLedgerTab, setActiveLedgerTab] = useState<'payments' | 'bills'>('payments');
 
-  // Form State for Adding Payment
+  // Form State for Adding Payment / Bal Add
   const [isAddPaymentOpen, setIsAddPaymentOpen] = useState(true);
+  const [entryMode, setEntryMode] = useState<'payment' | 'balance_add'>('payment');
   const [payAmount, setPayAmount] = useState<string>('');
   const [payDate, setPayDate] = useState<string>(todayStr);
   const [payMode, setPayMode] = useState<'cash' | 'upi' | 'bank' | 'cheque' | 'other'>('cash');
+  const [payNotes, setPayNotes] = useState<string>('');
   const [paymentSuccessToast, setPaymentSuccessToast] = useState<string | null>(null);
 
   // Delete Payment Confirmation modal state
@@ -144,13 +148,15 @@ export const HotelPage: React.FC<HotelPageProps> = ({
 
     const totalBilled = hotelBills.reduce((sum, b) => sum + b.totalAmount, 0);
     const totalKg = hotelBills.reduce((sum, b) => sum + b.totalKg, 0);
-    const totalPaid = hotelPayments.reduce((sum, p) => sum + p.amount, 0);
-    const balance = totalBilled - totalPaid;
+    const totalPaid = hotelPayments.filter((p) => p.type !== 'balance_add').reduce((sum, p) => sum + p.amount, 0);
+    const totalBalAdded = hotelPayments.filter((p) => p.type === 'balance_add').reduce((sum, p) => sum + p.amount, 0);
+    const balance = (totalBilled + totalBalAdded) - totalPaid;
 
     return {
       totalBilled,
       totalKg,
       totalPaid,
+      totalBalAdded,
       balance,
       hotelBills,
       hotelPayments,
@@ -163,8 +169,9 @@ export const HotelPage: React.FC<HotelPageProps> = ({
       const hBills = bills.filter((b) => isBillForHotel(b, h));
       const hPayments = payments.filter((p) => isPaymentForHotel(p, h));
       const billed = hBills.reduce((sum, b) => sum + b.totalAmount, 0);
-      const paid = hPayments.reduce((sum, p) => sum + p.amount, 0);
-      const bal = billed - paid;
+      const paid = hPayments.filter((p) => p.type !== 'balance_add').reduce((sum, p) => sum + p.amount, 0);
+      const balAdded = hPayments.filter((p) => p.type === 'balance_add').reduce((sum, p) => sum + p.amount, 0);
+      const bal = (billed + balAdded) - paid;
       const lastPayment = hPayments.length > 0 ? hPayments[0] : null;
 
       return {
@@ -184,7 +191,7 @@ export const HotelPage: React.FC<HotelPageProps> = ({
     return allHotelsBalances.reduce((sum, item) => (item.balance > 0 ? sum + item.balance : sum), 0);
   }, [allHotelsBalances]);
 
-  // Handle Add Payment Submit
+  // Handle Add Payment or Bal Add Submit
   const handleAddPaymentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentSelectedHotel) return;
@@ -195,23 +202,31 @@ export const HotelPage: React.FC<HotelPageProps> = ({
     }
 
     const hotelDisplayName = language === 'ta' ? currentSelectedHotel.nameTa : currentSelectedHotel.nameEn;
+    const isBalAdd = entryMode === 'balance_add';
 
     const newPayment: HotelPayment = {
-      id: 'pay_' + Date.now(),
+      id: (isBalAdd ? 'bal_add_' : 'pay_') + Date.now(),
       hotelId: currentSelectedHotel.id,
       hotelName: hotelDisplayName,
       amount: amountNum,
       date: payDate || todayStr,
       createdAt: new Date().toISOString(),
-      paymentMode: payMode,
+      paymentMode: isBalAdd ? 'other' : payMode,
+      type: isBalAdd ? 'balance_add' : 'payment',
+      notes: payNotes.trim() || (isBalAdd ? (language === 'ta' ? 'கூடுதல் பாக்கி' : 'Bal Add') : undefined),
     };
 
     onAddPayment(newPayment);
     setPayAmount('');
+    setPayNotes('');
     setPaymentSuccessToast(
-      language === 'ta'
-        ? `₹${amountNum.toLocaleString('en-IN')} வரவு வைக்கப்பட்டது!`
-        : `₹${amountNum.toLocaleString('en-IN')} payment recorded!`
+      isBalAdd
+        ? (language === 'ta'
+            ? `₹${amountNum.toLocaleString('en-IN')} பாக்கியில் சேர்க்கப்பட்டது (Bal Add)!`
+            : `₹${amountNum.toLocaleString('en-IN')} added to hotel balance!`)
+        : (language === 'ta'
+            ? `₹${amountNum.toLocaleString('en-IN')} வரவு வைக்கப்பட்டது!`
+            : `₹${amountNum.toLocaleString('en-IN')} payment recorded!`)
     );
     setTimeout(() => setPaymentSuccessToast(null), 3500);
   };
@@ -253,13 +268,13 @@ export const HotelPage: React.FC<HotelPageProps> = ({
       </div>
 
       {/* Hotel Dropdown Selector Container */}
-      <div className="bg-white border-2 border-emerald-300 rounded-3xl p-3.5 shadow-xs space-y-2">
-        <label className="block text-xs font-extrabold text-emerald-950 flex items-center justify-between">
+      <div className="bg-white border-2 border-emerald-200 rounded-3xl p-3.5 shadow-xs space-y-2">
+        <label className="block text-xs font-black text-emerald-950 flex items-center justify-between">
           <span className="flex items-center gap-1.5">
             <Building2 className="w-3.5 h-3.5 text-emerald-700" />
             <span>{t.selectHotelToViewBal}</span>
           </span>
-          <span className="text-[10px] text-gray-400 font-normal">
+          <span className="text-[10px] text-emerald-800/60 font-bold">
             ({allHotelOptions.length} {language === 'ta' ? 'ஹோட்டல்கள்' : 'Hotels'})
           </span>
         </label>
@@ -270,7 +285,7 @@ export const HotelPage: React.FC<HotelPageProps> = ({
             id="hotel-dropdown-selector"
             value={selectedHotelKey}
             onChange={(e) => setSelectedHotelKey(e.target.value)}
-            className="w-full pl-3.5 pr-10 py-3 bg-emerald-50/60 border border-emerald-300 focus:border-emerald-600 focus:bg-white rounded-2xl text-xs sm:text-sm font-bold text-emerald-950 outline-none appearance-none transition-all cursor-pointer shadow-xs"
+            className="w-full pl-3.5 pr-10 py-3 bg-emerald-50/50 hover:bg-emerald-50/80 border-2 border-emerald-300 focus:border-emerald-600 focus:bg-white rounded-2xl text-xs sm:text-sm font-black text-emerald-950 outline-none appearance-none transition-all cursor-pointer shadow-2xs"
           >
             <option value="all">
               {language === 'ta' ? '📊 அனைத்து ஹோட்டல்களின் பட்டியல் (Overview)' : '📊 All Hotels Overview Summary'}
@@ -361,8 +376,8 @@ export const HotelPage: React.FC<HotelPageProps> = ({
               )}
             </div>
 
-            {/* Sub-Stats Grid: Billed vs Paid */}
-            <div className="grid grid-cols-2 gap-2 pt-3 border-t border-white/20 text-xs">
+            {/* Sub-Stats Grid: Billed vs Paid vs Bal Added */}
+            <div className={`grid gap-2 pt-3 border-t border-white/20 text-xs ${hotelStats.totalBalAdded > 0 ? 'grid-cols-3' : 'grid-cols-2'}`}>
               <div className="bg-black/15 rounded-2xl p-2.5">
                 <div className="flex items-center gap-1 text-emerald-200 text-[10px] font-bold uppercase mb-0.5">
                   <ArrowUpRight className="w-3.5 h-3.5" />
@@ -376,6 +391,21 @@ export const HotelPage: React.FC<HotelPageProps> = ({
                 </span>
               </div>
 
+              {hotelStats.totalBalAdded > 0 && (
+                <div className="bg-black/15 rounded-2xl p-2.5">
+                  <div className="flex items-center gap-1 text-amber-300 text-[10px] font-bold uppercase mb-0.5">
+                    <ArrowUpRight className="w-3.5 h-3.5 text-amber-300" />
+                    <span>{language === 'ta' ? 'பாக்கி சேர்ப்பு' : 'Bal Added'}</span>
+                  </div>
+                  <div className="font-extrabold text-sm sm:text-base text-amber-200">
+                    +₹{Math.round(hotelStats.totalBalAdded).toLocaleString('en-IN')}
+                  </div>
+                  <span className="text-[10px] text-amber-300/80 block">
+                    {language === 'ta' ? 'கூடுதல் பாக்கி' : 'added'}
+                  </span>
+                </div>
+              )}
+
               <div className="bg-black/15 rounded-2xl p-2.5">
                 <div className="flex items-center gap-1 text-emerald-200 text-[10px] font-bold uppercase mb-0.5">
                   <ArrowDownLeft className="w-3.5 h-3.5 text-emerald-300" />
@@ -385,128 +415,254 @@ export const HotelPage: React.FC<HotelPageProps> = ({
                   ₹{Math.round(hotelStats.totalPaid).toLocaleString('en-IN')}
                 </div>
                 <span className="text-[10px] text-emerald-200 block">
-                  {hotelStats.hotelPayments.length} {language === 'ta' ? 'வரவு பதிவுகள்' : 'payments'}
+                  {hotelStats.hotelPayments.filter((p) => p.type !== 'balance_add').length} {language === 'ta' ? 'வரவு பதிவுகள்' : 'payments'}
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Form Card: "Add Paid Payment" */}
-          <div className="bg-white border border-emerald-200 rounded-3xl p-4 sm:p-5 shadow-xs space-y-3">
-            <div
-              className="flex items-center justify-between cursor-pointer"
-              onClick={() => setIsAddPaymentOpen(!isAddPaymentOpen)}
-            >
-              <div className="flex items-center gap-2">
-                <PlusCircle className="w-4 h-4 text-emerald-700" />
-                <h3 className="text-xs sm:text-sm font-extrabold text-emerald-950 uppercase tracking-wide">
-                  {t.addPayment}
+          {/* Form Card: "Add Paid Payment" or "Bal Add" */}
+          <div className={`bg-white border rounded-3xl p-4 sm:p-5 shadow-xs space-y-3 transition-colors ${
+            entryMode === 'payment' ? 'border-emerald-200' : 'border-amber-300 ring-1 ring-amber-400/20'
+          }`}>
+            <div className="flex items-center justify-between gap-2">
+              <div
+                className="flex items-center gap-2 cursor-pointer select-none"
+                onClick={() => setIsAddPaymentOpen(!isAddPaymentOpen)}
+              >
+                {entryMode === 'payment' ? (
+                  <PlusCircle className="w-4 h-4 text-emerald-700" />
+                ) : (
+                  <ArrowUpRight className="w-4 h-4 text-amber-600" />
+                )}
+                <h3 className="text-xs sm:text-sm font-extrabold text-gray-900 uppercase tracking-wide">
+                  {entryMode === 'payment'
+                    ? (language === 'ta' ? 'வரவு சேர்க்க (Add Payment)' : 'Add Payment')
+                    : (language === 'ta' ? 'பாக்கி சேர்க்க (Bal Add)' : 'Add Balance (Bal Add)')}
                 </h3>
               </div>
-              <button
-                type="button"
-                className="text-xs font-bold text-emerald-700 px-2 py-0.5 rounded-lg bg-emerald-50 hover:bg-emerald-100"
-              >
-                {isAddPaymentOpen ? (language === 'ta' ? 'மறைக்க' : 'Hide') : (language === 'ta' ? 'திறக்க' : 'Open')}
-              </button>
+
+              <div className="flex items-center gap-1.5">
+                {/* Button to change between Bal Add and Add Payment */}
+                <button
+                  id="btn-change-payment-bal-add"
+                  type="button"
+                  onClick={() => setEntryMode(entryMode === 'payment' ? 'balance_add' : 'payment')}
+                  className={`text-[11px] sm:text-xs font-black px-2.5 py-1.5 rounded-xl transition-all flex items-center gap-1.5 shadow-xs active:scale-95 text-white ${
+                    entryMode === 'payment'
+                      ? 'bg-amber-600 hover:bg-amber-700 active:bg-amber-800'
+                      : 'bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900'
+                  }`}
+                  title={
+                    entryMode === 'payment'
+                      ? 'Switch to Bal Add'
+                      : 'Switch to Add Payment'
+                  }
+                >
+                  <RefreshCw className="w-3 h-3 text-white" />
+                  <span>
+                    {entryMode === 'payment'
+                      ? (language === 'ta' ? 'பாக்கி சேர் (Bal Add) ➔' : 'Change: Bal Add ➔')
+                      : (language === 'ta' ? 'வரவு சேர் (Payment) ➔' : 'Change: Add Payment ➔')}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsAddPaymentOpen(!isAddPaymentOpen)}
+                  className="text-xs font-bold text-white px-2.5 py-1 rounded-xl bg-slate-700 hover:bg-slate-800 active:bg-slate-900 transition-colors shadow-xs"
+                >
+                  {isAddPaymentOpen ? (language === 'ta' ? 'மறை' : 'Hide') : (language === 'ta' ? 'திறக்க' : 'Open')}
+                </button>
+              </div>
             </div>
 
             {isAddPaymentOpen && (
-              <form onSubmit={handleAddPaymentSubmit} className="space-y-3 pt-1 animate-in fade-in duration-150">
-                {/* Amount Input */}
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1 flex items-center justify-between">
-                    <span className="flex items-center gap-1">
-                      <IndianRupee className="w-3.5 h-3.5 text-emerald-700" />
-                      <span>{t.paymentAmount}</span>
-                    </span>
-                    {hotelStats.balance > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => handleQuickAmount(Math.round(hotelStats.balance))}
-                        className="text-[10px] font-bold text-emerald-700 bg-emerald-100/70 hover:bg-emerald-200 px-2 py-0.5 rounded-md transition-colors"
-                      >
-                        ⚡ {t.quickPayFull} (₹{Math.round(hotelStats.balance)})
-                      </button>
-                    )}
-                  </label>
-                  <input
-                    id="input-pay-amount"
-                    type="number"
-                    step="1"
-                    min="1"
-                    required
-                    value={payAmount}
-                    onChange={(e) => setPayAmount(e.target.value)}
-                    placeholder="e.g. 2000"
-                    className="w-full px-3.5 py-2.5 bg-emerald-50/40 border border-emerald-300 focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-500/20 rounded-xl text-base font-black text-gray-900 outline-none transition-all"
-                  />
-
-                  {/* Quick Preset Amount Chips */}
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    {[500, 1000, 2000, 5000, 10000].map((preset) => (
-                      <button
-                        key={preset}
-                        type="button"
-                        onClick={() => handleQuickAmount(preset)}
-                        className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-900 rounded-lg text-[11px] font-bold transition-all active:scale-95"
-                      >
-                        +₹{preset.toLocaleString('en-IN')}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Date & Payment Mode Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {/* Payment Date */}
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1 flex items-center gap-1">
-                      <Calendar className="w-3.5 h-3.5 text-emerald-700" />
-                      <span>{t.paymentDate}</span>
-                    </label>
-                    <input
-                      id="input-pay-date"
-                      type="date"
-                      value={payDate}
-                      onChange={(e) => setPayDate(e.target.value)}
-                      className="w-full px-3 py-2 bg-emerald-50/40 border border-emerald-300 focus:border-emerald-600 rounded-xl text-xs font-semibold text-gray-900 outline-none"
-                    />
-                  </div>
-
-                  {/* Payment Mode */}
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1 flex items-center gap-1">
-                      <CreditCard className="w-3.5 h-3.5 text-emerald-700" />
-                      <span>{t.paymentMode}</span>
-                    </label>
-                    <select
-                      id="select-pay-mode"
-                      value={payMode}
-                      onChange={(e) => setPayMode(e.target.value as any)}
-                      className="w-full px-3 py-2 bg-emerald-50/40 border border-emerald-300 focus:border-emerald-600 rounded-xl text-xs font-bold text-gray-900 outline-none"
-                    >
-                      <option value="cash">{t.cash}</option>
-                      <option value="upi">{t.upi}</option>
-                      <option value="bank">{t.bankTransfer}</option>
-                      <option value="cheque">{t.cheque}</option>
-                      <option value="other">{t.other}</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Submit Button */}
-                <div className="pt-1">
+              <div className="space-y-3 pt-0.5">
+                {/* 2-Segment Direct Switcher Buttons */}
+                <div className="grid grid-cols-2 gap-1 p-1 bg-slate-200 rounded-2xl border border-slate-300 text-xs font-extrabold">
                   <button
-                    id="btn-save-hotel-payment"
-                    type="submit"
-                    className="w-full py-3 px-4 bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white font-extrabold text-xs sm:text-sm rounded-2xl shadow-md flex items-center justify-center gap-2 transition-all active:scale-98"
+                    type="button"
+                    id="tab-btn-add-payment"
+                    onClick={() => setEntryMode('payment')}
+                    className={`py-2 px-2.5 rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+                      entryMode === 'payment'
+                        ? 'bg-emerald-700 text-white shadow-xs'
+                        : 'text-slate-700 hover:text-slate-900 hover:bg-slate-300'
+                    }`}
                   >
-                    <PlusCircle className="w-4 h-4" />
-                    <span>{t.savePayment}</span>
+                    <ArrowDownLeft className="w-3.5 h-3.5" />
+                    <span>{language === 'ta' ? 'வரவு (Payment)' : 'Add Payment'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    id="tab-btn-bal-add"
+                    onClick={() => setEntryMode('balance_add')}
+                    className={`py-2 px-2.5 rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+                      entryMode === 'balance_add'
+                        ? 'bg-amber-600 text-white shadow-xs'
+                        : 'text-slate-700 hover:text-slate-900 hover:bg-slate-300'
+                    }`}
+                  >
+                    <ArrowUpRight className="w-3.5 h-3.5" />
+                    <span>{language === 'ta' ? 'பாக்கி சேர் (Bal Add)' : 'Bal Add'}</span>
                   </button>
                 </div>
-              </form>
+
+                <form onSubmit={handleAddPaymentSubmit} className="space-y-3 pt-0.5 animate-in fade-in duration-150">
+                  {/* Amount Input */}
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1 flex items-center justify-between">
+                      <span className="flex items-center gap-1">
+                        <IndianRupee className={`w-3.5 h-3.5 ${entryMode === 'payment' ? 'text-emerald-700' : 'text-amber-600'}`} />
+                        <span>
+                          {entryMode === 'payment'
+                            ? t.paymentAmount
+                            : (language === 'ta' ? 'கூடுதல் பாக்கி தொகை (Bal Add)' : 'Balance Amount to Add')}
+                        </span>
+                      </span>
+                      {entryMode === 'payment' && hotelStats.balance > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => handleQuickAmount(Math.round(hotelStats.balance))}
+                          className="text-[10px] font-black text-white bg-emerald-700 hover:bg-emerald-800 px-2.5 py-1 rounded-lg transition-colors shadow-xs"
+                        >
+                          ⚡ {t.quickPayFull} (₹{Math.round(hotelStats.balance)})
+                        </button>
+                      )}
+                    </label>
+                    <input
+                      id="input-pay-amount"
+                      type="number"
+                      step="1"
+                      min="1"
+                      required
+                      value={payAmount}
+                      onChange={(e) => setPayAmount(e.target.value)}
+                      placeholder={entryMode === 'payment' ? 'e.g. 2000' : 'e.g. 1500'}
+                      className={`w-full px-3.5 py-2.5 border rounded-xl text-base font-black text-gray-900 outline-none transition-all ${
+                        entryMode === 'payment'
+                          ? 'bg-emerald-50/40 border-emerald-300 focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-500/20'
+                          : 'bg-amber-50/40 border-amber-300 focus:border-amber-600 focus:bg-white focus:ring-2 focus:ring-amber-500/20'
+                      }`}
+                    />
+
+                    {/* Quick Preset Amount Chips */}
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {[500, 1000, 2000, 5000, 10000].map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => handleQuickAmount(preset)}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-black transition-all active:scale-95 text-white shadow-xs ${
+                            entryMode === 'payment'
+                              ? 'bg-emerald-700 hover:bg-emerald-800'
+                              : 'bg-amber-600 hover:bg-amber-700'
+                          }`}
+                        >
+                          +₹{preset.toLocaleString('en-IN')}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Date & Payment Mode or Reason Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {/* Payment Date */}
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1 flex items-center gap-1">
+                        <Calendar className={`w-3.5 h-3.5 ${entryMode === 'payment' ? 'text-emerald-700' : 'text-amber-600'}`} />
+                        <span>{entryMode === 'payment' ? t.paymentDate : (language === 'ta' ? 'தேதி' : 'Date')}</span>
+                      </label>
+                      <input
+                        id="input-pay-date"
+                        type="date"
+                        value={payDate}
+                        onChange={(e) => setPayDate(e.target.value)}
+                        className={`w-full px-3 py-2 border rounded-xl text-xs font-semibold text-gray-900 outline-none ${
+                          entryMode === 'payment'
+                            ? 'bg-emerald-50/40 border-emerald-300 focus:border-emerald-600'
+                            : 'bg-amber-50/40 border-amber-300 focus:border-amber-600'
+                        }`}
+                      />
+                    </div>
+
+                    {/* Payment Mode or Bal Add Reason */}
+                    {entryMode === 'payment' ? (
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1 flex items-center gap-1">
+                          <CreditCard className="w-3.5 h-3.5 text-emerald-700" />
+                          <span>{t.paymentMode}</span>
+                        </label>
+                        <select
+                          id="select-pay-mode"
+                          value={payMode}
+                          onChange={(e) => setPayMode(e.target.value as any)}
+                          className="w-full px-3 py-2 bg-emerald-50/40 border border-emerald-300 focus:border-emerald-600 rounded-xl text-xs font-bold text-gray-900 outline-none"
+                        >
+                          <option value="cash">{t.cash}</option>
+                          <option value="upi">{t.upi}</option>
+                          <option value="bank">{t.bankTransfer}</option>
+                          <option value="cheque">{t.cheque}</option>
+                          <option value="other">{t.other}</option>
+                        </select>
+                      </div>
+                    ) : (
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1 flex items-center gap-1">
+                          <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                          <span>{language === 'ta' ? 'காரணம் / குறிப்பு' : 'Reason / Note'}</span>
+                        </label>
+                        <input
+                          id="input-pay-notes"
+                          type="text"
+                          value={payNotes}
+                          onChange={(e) => setPayNotes(e.target.value)}
+                          placeholder={language === 'ta' ? 'எ.கா. முந்தைய பாக்கி, பழைய கடன்' : 'e.g. Previous balance, adjustment'}
+                          className="w-full px-3 py-2 bg-amber-50/40 border border-amber-300 focus:border-amber-600 rounded-xl text-xs font-semibold text-gray-900 outline-none"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* If Bal Add, show explanation note */}
+                  {entryMode === 'balance_add' && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-2.5 text-[11px] text-amber-900 flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                      <span>
+                        {language === 'ta'
+                          ? 'இந்தத் தொகையைச் சேர்ப்பது வாடிக்கையாளரின் நிலுவைப் பாக்கியை அதிகரிக்கும் (எ.கா. பழைய பாக்கி அல்லது கூடுதல் கட்டணம்).'
+                          : 'Adding this balance will increase the total due amount for this customer (e.g. previous pending balance or extra charge).'}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Submit Button */}
+                  <div className="pt-1">
+                    <button
+                      id="btn-save-hotel-payment"
+                      type="submit"
+                      className={`w-full py-3 px-4 text-white font-extrabold text-xs sm:text-sm rounded-2xl shadow-md flex items-center justify-center gap-2 transition-all active:scale-98 ${
+                        entryMode === 'payment'
+                          ? 'bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900'
+                          : 'bg-amber-600 hover:bg-amber-700 active:bg-amber-800'
+                      }`}
+                    >
+                      {entryMode === 'payment' ? (
+                        <>
+                          <PlusCircle className="w-4 h-4" />
+                          <span>{t.savePayment}</span>
+                        </>
+                      ) : (
+                        <>
+                          <ArrowUpRight className="w-4 h-4" />
+                          <span>{language === 'ta' ? 'பாக்கி சேமிக்க (Save Bal Add)' : 'Save Bal Add'}</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </div>
             )}
           </div>
 
@@ -525,9 +681,9 @@ export const HotelPage: React.FC<HotelPageProps> = ({
                     hotelStats.balance
                   )
                 }
-                className="w-full py-2.5 px-3 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-900 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition-colors active:scale-98"
+                className="w-full py-3 px-3 bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all active:scale-98 shadow-md shadow-emerald-700/20"
               >
-                <Download className="w-4 h-4 text-emerald-700" />
+                <Download className="w-4 h-4 text-white" />
                 <span>{t.saveHotelStatementCsv}</span>
               </button>
             </div>
@@ -547,7 +703,9 @@ export const HotelPage: React.FC<HotelPageProps> = ({
                 }`}
               >
                 <ArrowDownLeft className="w-3.5 h-3.5" />
-                <span>{t.paymentHistory} ({hotelStats.hotelPayments.length})</span>
+                <span>
+                  {language === 'ta' ? 'வரவு & பாக்கி' : 'Payments & Bal Add'} ({hotelStats.hotelPayments.length})
+                </span>
               </button>
               <button
                 type="button"
@@ -563,7 +721,7 @@ export const HotelPage: React.FC<HotelPageProps> = ({
               </button>
             </div>
 
-            {/* TAB 1 CONTENT: PAYMENTS */}
+            {/* TAB 1 CONTENT: PAYMENTS & BAL ADD */}
             {activeLedgerTab === 'payments' && (
               <div className="space-y-2">
                 {hotelStats.hotelPayments.length === 0 ? (
@@ -571,49 +729,79 @@ export const HotelPage: React.FC<HotelPageProps> = ({
                     <IndianRupee className="w-8 h-8 mx-auto mb-1.5 opacity-40 text-emerald-700" />
                     <p className="font-semibold text-gray-600">{t.noPaymentsRecorded}</p>
                     <p className="text-[11px] text-gray-400 mt-0.5">
-                      {language === 'ta' ? 'மேலே உள்ள படிவத்தைப் பயன்படுத்தி வரவைச் சேர்க்கவும்.' : 'Use the form above to record a payment.'}
+                      {language === 'ta' ? 'மேலே உள்ள படிவத்தைப் பயன்படுத்தி வரவு அல்லது பாக்கியைச் சேர்க்கவும்.' : 'Use the form above to record payment or add balance.'}
                     </p>
                   </div>
                 ) : (
                   <div className="divide-y divide-emerald-50 max-h-72 overflow-y-auto">
-                    {hotelStats.hotelPayments.map((p) => (
-                      <div
-                        key={p.id}
-                        id={`payment-row-${p.id}`}
-                        className="py-2.5 flex items-center justify-between gap-2 hover:bg-emerald-50/40 rounded-xl px-1.5 transition-colors"
-                      >
-                        <div className="flex items-start gap-2.5 min-w-0">
-                          <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center flex-shrink-0 mt-0.5">
-                            <ArrowDownLeft className="w-3.5 h-3.5" />
-                          </div>
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-xs font-extrabold text-emerald-950">
-                                ₹{Math.round(p.amount).toLocaleString('en-IN')}
-                              </span>
-                              <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-md uppercase">
-                                {p.paymentMode || 'cash'}
-                              </span>
-                            </div>
-                            <div className="text-[11px] text-gray-500 flex items-center gap-1 mt-0.5">
-                              <Calendar className="w-3 h-3 text-emerald-600" />
-                              <span>{formatDisplayDate(p.date)}</span>
-                              {p.notes && <span className="text-gray-400 truncate max-w-[120px]">&bull; {p.notes}</span>}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Delete Button */}
-                        <button
-                          type="button"
-                          onClick={() => setPaymentToDelete(p)}
-                          title="Delete payment"
-                          className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    {hotelStats.hotelPayments.map((p) => {
+                      const isBalAdd = p.type === 'balance_add';
+                      return (
+                        <div
+                          key={p.id}
+                          id={`payment-row-${p.id}`}
+                          className="py-2.5 flex items-center justify-between gap-2 hover:bg-emerald-50/40 rounded-xl px-1.5 transition-colors"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ))}
+                          <div className="flex items-start gap-2.5 min-w-0">
+                            <div
+                              className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                                isBalAdd
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : 'bg-emerald-100 text-emerald-800'
+                              }`}
+                            >
+                              {isBalAdd ? (
+                                <ArrowUpRight className="w-3.5 h-3.5" />
+                              ) : (
+                                <ArrowDownLeft className="w-3.5 h-3.5" />
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span
+                                  className={`text-xs font-extrabold ${
+                                    isBalAdd ? 'text-amber-950' : 'text-emerald-950'
+                                  }`}
+                                >
+                                  {isBalAdd ? '+₹' : '₹'}
+                                  {Math.round(p.amount).toLocaleString('en-IN')}
+                                </span>
+                                <span
+                                  className={`px-1.5 py-0.5 text-[10px] font-bold rounded-md uppercase ${
+                                    isBalAdd
+                                      ? 'bg-amber-100 text-amber-900 border border-amber-200'
+                                      : 'bg-emerald-100 text-emerald-800'
+                                  }`}
+                                >
+                                  {isBalAdd
+                                    ? (language === 'ta' ? 'பாக்கி சேர்ப்பு' : 'Bal Add')
+                                    : (p.paymentMode || 'cash')}
+                                </span>
+                              </div>
+                              <div className="text-[11px] text-gray-500 flex items-center gap-1 mt-0.5 flex-wrap">
+                                <Calendar className="w-3 h-3 text-emerald-600" />
+                                <span>{formatDisplayDate(p.date)}</span>
+                                {p.notes && (
+                                  <span className="text-gray-500 truncate max-w-[140px]">
+                                    &bull; {p.notes}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Delete Button */}
+                          <button
+                            type="button"
+                            onClick={() => setPaymentToDelete(p)}
+                            title={isBalAdd ? 'Delete Bal Add' : 'Delete payment'}
+                            className="p-1.5 text-white bg-rose-600 hover:bg-rose-700 active:bg-rose-800 rounded-lg transition-colors shadow-xs"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-white" />
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -658,7 +846,7 @@ export const HotelPage: React.FC<HotelPageProps> = ({
                           <button
                             type="button"
                             onClick={() => onReprintBill(b)}
-                            className="p-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-colors shadow-2xs"
+                            className="p-1.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-lg text-xs font-bold transition-colors shadow-2xs"
                             title={language === 'ta' ? 'வாட்ஸ்அப் PDF அனுப்ப' : 'Send WhatsApp PDF'}
                           >
                             <MessageCircle className="w-3.5 h-3.5 fill-white" />
@@ -666,10 +854,10 @@ export const HotelPage: React.FC<HotelPageProps> = ({
                           <button
                             type="button"
                             onClick={() => onReprintBill(b)}
-                            className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-lg text-xs font-bold border border-emerald-200 transition-colors"
+                            className="p-1.5 bg-emerald-800 hover:bg-emerald-900 active:bg-emerald-950 text-white rounded-lg text-xs font-bold transition-colors shadow-xs"
                             title={t.reprint}
                           >
-                            <Receipt className="w-3.5 h-3.5" />
+                            <Receipt className="w-3.5 h-3.5 text-white" />
                           </button>
                         </div>
                       </div>
@@ -790,43 +978,34 @@ export const HotelPage: React.FC<HotelPageProps> = ({
       )}
 
       {/* Delete Payment Confirmation Modal */}
-      {paymentToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-emerald-950/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white rounded-3xl p-5 w-full max-w-sm shadow-2xl border border-emerald-100">
-            <div className="flex items-center gap-2 text-amber-700 mb-2">
-              <AlertCircle className="w-5 h-5" />
-              <h3 className="text-base font-bold text-gray-900">
-                {t.deletePayment}
-              </h3>
-            </div>
-            <p className="text-xs text-gray-600 mb-4">
-              {t.deletePaymentConfirm}
-              <strong>{Math.round(paymentToDelete.amount).toLocaleString('en-IN')}</strong> ({formatDisplayDate(paymentToDelete.date)})?
-            </p>
-
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setPaymentToDelete(null)}
-                className="py-2.5 px-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-xs transition-colors"
-              >
-                {t.cancel}
-              </button>
-              <button
-                id="btn-confirm-delete-payment"
-                type="button"
-                onClick={() => {
-                  onDeletePayment(paymentToDelete.id);
-                  setPaymentToDelete(null);
-                }}
-                className="py-2.5 px-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-xs shadow-md transition-colors"
-              >
-                {t.delete}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDeleteModal
+        isOpen={!!paymentToDelete}
+        title={language === 'ta' ? 'பணம் செலுத்தியதை நீக்கவா?' : t.deletePayment}
+        message={
+          language === 'ta'
+            ? 'பதிவு செய்யப்பட்ட இந்த கட்டணப் பதிவை நிச்சயமாக நீக்க விரும்புகிறீர்களா?'
+            : 'Are you sure you want to delete this payment transaction record?'
+        }
+        itemDetails={
+          paymentToDelete
+            ? `₹${Math.round(paymentToDelete.amount).toLocaleString('en-IN')} — ${
+                paymentToDelete.type === 'balance_add'
+                  ? (language === 'ta' ? 'பாக்கி சேர்ப்பு' : 'Balance Add (+)')
+                  : (paymentToDelete.paymentMode || 'cash').toUpperCase()
+              } (${formatDisplayDate(paymentToDelete.date)})`
+            : undefined
+        }
+        confirmLabel={t.delete}
+        cancelLabel={t.cancel}
+        language={language}
+        onConfirm={() => {
+          if (paymentToDelete) {
+            onDeletePayment(paymentToDelete.id);
+            setPaymentToDelete(null);
+          }
+        }}
+        onCancel={() => setPaymentToDelete(null)}
+      />
     </div>
   );
 };

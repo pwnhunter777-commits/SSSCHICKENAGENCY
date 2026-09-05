@@ -52,9 +52,9 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   return (
     <nav
       id="bottom-navigation-bar"
-      className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-emerald-100 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] safe-area-pb"
+      className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t-2 border-emerald-200/90 shadow-[0_-4px_25px_rgba(5,150,105,0.08)] safe-area-pb"
     >
-      <div className="max-w-md mx-auto grid grid-cols-6 px-0.5 py-1">
+      <div className="max-w-md mx-auto grid grid-cols-6 px-1 py-1.5">
         {navItems.map((item) => {
           const isActive = currentPage === item.id;
           return (
@@ -63,18 +63,18 @@ export const BottomNav: React.FC<BottomNavProps> = ({
               id={`nav-item-${item.id}`}
               type="button"
               onClick={() => onPageChange(item.id)}
-              className={`relative flex flex-col items-center justify-center py-1 px-0.5 rounded-2xl transition-all duration-200 ${
+              className={`relative flex flex-col items-center justify-center py-0.5 px-0.5 rounded-2xl transition-all duration-200 ${
                 isActive
-                  ? 'text-emerald-700 font-bold'
-                  : 'text-gray-500 hover:text-emerald-600 font-medium'
+                  ? 'text-emerald-900 font-black'
+                  : 'text-emerald-950/60 hover:text-emerald-800 font-semibold'
               }`}
             >
               {/* Highlight pill behind icon for active state */}
               <div
-                className={`flex items-center justify-center w-9 h-6 sm:w-10 sm:h-7 rounded-full mb-0.5 transition-all ${
+                className={`flex items-center justify-center w-10 h-7 rounded-full mb-0.5 transition-all ${
                   isActive
-                    ? 'bg-emerald-100 text-emerald-800 scale-105 shadow-xs'
-                    : 'text-gray-500 hover:bg-emerald-50/60'
+                    ? 'bg-emerald-700 text-white scale-105 shadow-md shadow-emerald-700/35'
+                    : 'text-emerald-800 hover:bg-emerald-50'
                 }`}
               >
                 {item.icon}
@@ -83,7 +83,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
               {/* Label */}
               <span
                 className={`text-[9px] sm:text-[10px] leading-tight text-center truncate max-w-full px-0.5 ${
-                  isActive ? 'text-emerald-800 font-bold' : 'text-gray-500'
+                  isActive ? 'text-emerald-950 font-black' : 'text-emerald-950/70 font-bold'
                 }`}
               >
                 {item.label}
@@ -91,7 +91,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
 
               {/* Bottom active dot */}
               {isActive && (
-                <span className="absolute bottom-0.5 w-1.5 h-1.5 bg-emerald-600 rounded-full" />
+                <span className="absolute -bottom-0.5 w-1.5 h-1.5 bg-emerald-700 rounded-full" />
               )}
             </button>
           );

@@ -62,8 +62,9 @@ export interface HotelPayment {
   amount: number;
   date: string; // YYYY-MM-DD
   createdAt: string; // ISO string
-  paymentMode?: 'cash' | 'upi' | 'bank' | 'other';
+  paymentMode?: 'cash' | 'upi' | 'bank' | 'other' | 'cheque';
   notes?: string;
+  type?: 'payment' | 'balance_add';
 }
 
 export type AppPage = 'daily-price' | 'billing' | 'register' | 'total' | 'hotel' | 'settings';
