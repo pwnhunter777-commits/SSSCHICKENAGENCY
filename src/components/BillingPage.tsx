@@ -80,17 +80,6 @@ export const BillingPage: React.FC<BillingPageProps> = ({
   const [newHotelNameTa, setNewHotelNameTa] = useState<string>('');
   const [addNotification, setAddNotification] = useState<string | null>(null);
 
-  // Price Reduce State
-  const [isReduceOpen, setIsReduceOpen] = useState<boolean>(false);
-  const [reduceAmountInput, setReduceAmountInput] = useState<string>('5');
-  // Multi-select product IDs for reduction
-  const [selectedReduceProductIds, setSelectedReduceProductIds] = useState<string[]>(
-    products.map((p) => p.id)
-  );
-  // Map of productId -> discount amount (e.g. { 'p1': 5 })
-  const [productReductions, setProductReductions] = useState<Record<string, number>>({});
-  const [reduceNotification, setReduceNotification] = useState<string | null>(null);
-
   // Billing items input state: map of productId -> { kgInput, priceInput }
   const [billingInputs, setBillingInputs] = useState<Record<string, ProductBillingState>>({});
 
